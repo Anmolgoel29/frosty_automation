@@ -1,8 +1,5 @@
 # linkedin/tasks/connect.py
-"""Connect task — pulls one candidate, connects, self-reschedules.
-
-Works for both regular and freemium campaigns via ConnectStrategy.
-"""
+"""Connect task — pulls one candidate, connects, self-reschedules."""
 from __future__ import annotations
 
 import logging
@@ -29,32 +26,16 @@ class ConnectStrategy:
     find_candidate: Callable
     pre_connect: Callable | None
     delay: float
-    action_fraction: float  # 1.0 = always fire at base delay
     qualifier: object
 
     def compute_delay(self, elapsed: float) -> float:
-        """Delay until next connect, scaled by elapsed execution time for freemium campaigns."""
-        if self.action_fraction >= 1.0:
-            return self.delay
-        return max(self.delay, elapsed * (1 - self.action_fraction) / self.action_fraction)
+        """Delay until next connect."""
+        return self.delay
 
 
 def strategy_for(campaign, qualifiers):
-    """Build the right ConnectStrategy based on campaign type."""
+    """Build the connect strategy for a campaign."""
     qualifier = qualifiers.get(campaign.pk)
-
-    if campaign.is_freemium:
-        from linkedin.db.deals import create_freemium_deal
-        from linkedin.pipeline.freemium_pool import find_freemium_candidate
-
-        fraction = campaign.action_fraction
-        return ConnectStrategy(
-            find_candidate=lambda s: find_freemium_candidate(s, qualifier),
-            pre_connect=lambda s, pid: create_freemium_deal(s, pid),
-            delay=CAMPAIGN_CONFIG["connect_delay_seconds"],
-            action_fraction=fraction,
-            qualifier=qualifier,
-        )
 
     from linkedin.pipeline.pools import find_candidate
 
@@ -62,7 +43,6 @@ def strategy_for(campaign, qualifiers):
         find_candidate=lambda s: find_candidate(s, qualifier),
         pre_connect=None,
         delay=CAMPAIGN_CONFIG["connect_delay_seconds"],
-        action_fraction=1.0,
         qualifier=qualifier,
     )
 
@@ -95,7 +75,7 @@ def handle_connect(task, session, qualifiers):
     public_id = candidate["public_identifier"]
     profile = candidate.get("profile") or candidate
 
-    # Freemium campaigns need a Deal before set_profile_state
+    # Ensure we have a Deal before calling set_profile_state
     if strategy.pre_connect:
         strategy.pre_connect(session, public_id)
 
