@@ -29,7 +29,7 @@ class Command(BaseCommand):
         parser.add_argument("--llm-api-key", default="")
         parser.add_argument("--ai-model", default="")
         parser.add_argument("--llm-api-base", default="")
-        parser.add_argument("--newsletter", action="store_true", default=True)
+        parser.add_argument("--newsletter", action="store_true", default=False)
         parser.add_argument("--no-newsletter", dest="newsletter", action="store_false")
         parser.add_argument("--connect-daily-limit", type=int, default=DEFAULT_CONNECT_DAILY_LIMIT)
         parser.add_argument("--connect-weekly-limit", type=int, default=DEFAULT_CONNECT_WEEKLY_LIMIT)

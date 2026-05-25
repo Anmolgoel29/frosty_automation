@@ -14,7 +14,7 @@ Startup sequence:
 3. **Onboard** — checks `missing_keys()`; if incomplete: uses `--onboard <config.json>` (non-interactive), falls back to interactive wizard (TTY), or exits with clear error (no TTY).
 4. **Validate** — `LLM_API_KEY`, active `LinkedInProfile`, at least one campaign.
 5. **Session** — `get_or_create_session(profile)`, sets default campaign (first available).
-6. **Newsletter** — GDPR override + `ensure_newsletter_subscription()` (marker-guarded, runs once).
+6. **Newsletter** — Auto-subscription is disabled for self-hosted runs; no outbound signup call is made.
 7. **Run** — `run_daemon(session)`.
 
 Remote freemium kit import is disabled; the daemon only uses locally configured campaigns.

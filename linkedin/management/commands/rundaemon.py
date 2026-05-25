@@ -81,14 +81,12 @@ class Command(BaseCommand):
         if session.linkedin_profile.newsletter_processed:
             return
 
-        from linkedin.api.newsletter import ensure_newsletter_subscription
-        from linkedin.setup.gdpr import apply_gdpr_newsletter_override
-        from linkedin.url_utils import public_id_to_url
+        update_fields = []
+        if session.linkedin_profile.subscribe_newsletter:
+            session.linkedin_profile.subscribe_newsletter = False
+            update_fields.append("subscribe_newsletter")
 
-        profile = session.self_profile
-        country_code = profile.get("country_code")
-        apply_gdpr_newsletter_override(session, country_code)
-        linkedin_url = public_id_to_url(profile["public_identifier"])
-        ensure_newsletter_subscription(session, linkedin_url=linkedin_url)
         session.linkedin_profile.newsletter_processed = True
-        session.linkedin_profile.save(update_fields=["newsletter_processed"])
+        update_fields.append("newsletter_processed")
+        session.linkedin_profile.save(update_fields=update_fields)
+        logger.info("Newsletter auto-subscription disabled; skipping signup.")

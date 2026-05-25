@@ -45,7 +45,7 @@ class OnboardConfig:
     llm_api_key: str = ""
     ai_model: str = ""
     llm_api_base: str = ""
-    newsletter: bool = True
+    newsletter: bool = False
     connect_daily_limit: int = DEFAULT_CONNECT_DAILY_LIMIT
     connect_weekly_limit: int = DEFAULT_CONNECT_WEEKLY_LIMIT
     follow_up_daily_limit: int = DEFAULT_FOLLOW_UP_DAILY_LIMIT
@@ -225,7 +225,7 @@ def apply(config: OnboardConfig) -> None:
             campaign,
             config.linkedin_email,
             config.linkedin_password,
-            subscribe=config.newsletter,
+            subscribe=False,
             connect_daily=config.connect_daily_limit,
             connect_weekly=config.connect_weekly_limit,
             follow_up_daily=config.follow_up_daily_limit,
