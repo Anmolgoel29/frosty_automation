@@ -1,0 +1,18 @@
+{
+  "linkedin_email": "your.email@example.com",
+  "linkedin_password": "your_secure_password",
+  "campaign_name": "B2B Lead Generation Campaign",
+  "product_description": "AI-powered lead discovery and outreach automation platform that helps sales teams find and engage qualified prospects on LinkedIn",
+  "campaign_objective": "Find VP of Engineering and Director of DevOps at Series B-D SaaS companies using AWS/Kubernetes, targeting companies in US/EU with 100-500 employees",
+  "booking_link": "https://calendly.com/your-link",
+  "seed_urls": "https://www.linkedin.com/in/john-doe\nhttps://www.linkedin.com/in/jane-smith",
+  "llm_provider": "groq",
+  "llm_api_key": "your_llm_api_key_here",
+  "ai_model": "mixtral-8x7b-32768",
+  "llm_api_base": "",
+  "newsletter": false,
+  "connect_daily_limit": 10,
+  "connect_weekly_limit": 50,
+  "follow_up_daily_limit": 5,
+  "legal_acceptance": true
+}
