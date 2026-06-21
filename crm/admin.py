@@ -1,9 +1,10 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 from .models.lead import Lead
 from .models.deal import Deal
 
 @admin.register(Lead)
-class LeadAdmin(admin.ModelAdmin):
+class LeadAdmin(ModelAdmin):
     list_display = ('public_identifier', 'linkedin_url', 'disqualified', 'human_takeover')
     list_filter = ('disqualified', 'human_takeover')
     search_fields = ('public_identifier', 'linkedin_url', 'urn')
@@ -20,7 +21,7 @@ class LeadAdmin(admin.ModelAdmin):
         self.message_user(request, f"Successfully resumed AI for {updated} lead(s).")
 
 @admin.register(Deal)
-class DealAdmin(admin.ModelAdmin):
+class DealAdmin(ModelAdmin):
     list_display = ('lead', 'campaign', 'state', 'outcome', 'connect_attempts')
     list_filter = ('state', 'outcome', 'campaign')
     search_fields = ('lead__public_identifier', 'reason')
