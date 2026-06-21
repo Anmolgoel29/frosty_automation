@@ -84,6 +84,10 @@ def handle_follow_up(task, session, qualifiers):
         logger.warning("follow_up: no Deal for %s — skipping", public_id)
         return
 
+    if deal.lead.human_takeover:
+        logger.info("[%s] follow_up %s: lead is flagged for human takeover — skipping AI follow-up", session.campaign, public_id)
+        return
+
     if _too_soon_to_nudge(deal):
         logger.info("[%s] follow_up %s: too soon to nudge — re-enqueuing", session.campaign, public_id)
         enqueue_follow_up(campaign_id, public_id, delay_seconds=24 * 3600)

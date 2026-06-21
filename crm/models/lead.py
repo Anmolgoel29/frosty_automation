@@ -18,6 +18,11 @@ class Lead(models.Model):
     urn = models.CharField(max_length=200, null=True, blank=True, unique=True, db_index=True)
     embedding = models.BinaryField(null=True, blank=True)
     disqualified = models.BooleanField(default=False)
+    human_takeover = models.BooleanField(
+        default=False,
+        verbose_name=_("Human Takeover"),
+        help_text=_("If True, AI will stop sending automated messages.")
+    )
     creation_date = models.DateTimeField(default=timezone.now)
     update_date = models.DateTimeField(auto_now=True)
 
