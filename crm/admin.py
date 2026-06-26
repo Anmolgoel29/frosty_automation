@@ -12,8 +12,20 @@ class LeadAdmin(ModelAdmin):
 
     @admin.action(description="Human Takeover (Stop AI messages)")
     def mark_human_takeover(self, request, queryset):
-        updated = queryset.update(human_takeover=True)
-        self.message_user(request, f"Successfully marked {updated} lead(s) for Human Takeover. AI will stop sending messages.")
+        # Disqualified leads have no active conversations — skip them.
+        disqualified_ids = list(
+            queryset.filter(disqualified=True).values_list("public_identifier", flat=True)
+        )
+        if disqualified_ids:
+            self.message_user(
+                request,
+                f"Skipped {len(disqualified_ids)} permanently-disqualified lead(s) — "
+                f"they have no active AI conversation: {', '.join(disqualified_ids)}",
+                level="warning",
+            )
+        updated = queryset.filter(disqualified=False).update(human_takeover=True)
+        if updated:
+            self.message_user(request, f"Successfully marked {updated} lead(s) for Human Takeover. AI will stop sending messages.")
 
     @admin.action(description="Resume AI messages")
     def resume_ai(self, request, queryset):

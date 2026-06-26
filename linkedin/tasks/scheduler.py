@@ -185,6 +185,10 @@ def _seed_deal_tasks(session) -> None:
 
     Iterates PENDING and CONNECTED deals once per campaign, letting
     ``on_deal_state_entered`` decide what to enqueue (with dedup).
+
+    Deals whose lead is flagged for human takeover are excluded from
+    follow_up task seeding — the human is managing that conversation and
+    no automated tasks should be re-created for it.
     """
     from crm.models import Deal
 
@@ -195,6 +199,10 @@ def _seed_deal_tasks(session) -> None:
             campaign=campaign,
         ).select_related("lead")
         for deal in deals:
+            # Skip human-takeover leads entirely — reconcile must not
+            # re-create follow_up tasks for conversations a human owns.
+            if deal.state == ProfileState.CONNECTED and deal.lead.human_takeover:
+                continue
             on_deal_state_entered(deal)
 
 

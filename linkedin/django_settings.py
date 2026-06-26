@@ -14,9 +14,12 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 BASE_DIR = ROOT_DIR
 
-SECRET_KEY = "openoutreach-local-dev-key-change-in-production"
+SECRET_KEY = os.environ.get(
+    "DJANGO_SECRET_KEY",
+    "openoutreach-local-dev-key-change-in-production",
+)
 
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 
 ALLOWED_HOSTS = ["*"]
 
