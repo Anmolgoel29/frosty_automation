@@ -1,30 +1,11 @@
 # linkedin/logging.py
-"""Centralized logging configuration with colored output and startup banner."""
+"""Centralized logging configuration with colored output."""
 from __future__ import annotations
 
 import logging
 import sys
 
 from termcolor import colored
-
-# ── Banner ──────────────────────────────────────────────────────────
-
-BANNER = r"""
-   ___                   ___        _                      _
-  / _ \ _ __   ___ _ __ / _ \ _   _| |_ _ __ ___  __ _  ___| |__
- | | | | '_ \ / _ \ '_ \ | | | | | | __| '__/ _ \/ _` |/ __| '_ \
- | |_| | |_) |  __/ | | | |_| | |_| | |_| | |  __/ (_| | (__| | | |
-  \___/| .__/ \___|_| |_|\___/ \__,_|\__|_|  \___|\__,_|\___|_| |_|
-       |_|
-"""
-
-
-def print_banner():
-    """Print the OpenOutreach startup banner in bold cyan."""
-    sys.stdout.write(colored(BANNER, "cyan", attrs=["bold"]))
-    sys.stdout.write("\n")
-    sys.stdout.flush()
-
 
 # ── Colored formatter ───────────────────────────────────────────────
 

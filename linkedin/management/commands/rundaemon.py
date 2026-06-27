@@ -23,11 +23,10 @@ class Command(BaseCommand):
     # -- Steps ---------------------------------------------------------------
 
     def _configure_logging(self, verbose: bool = False):
-        from linkedin.logging import configure_logging, print_banner
+        from linkedin.logging import configure_logging
 
         level = logging.DEBUG if verbose else logging.INFO
         configure_logging(level=level)
-        print_banner()
 
     def _ensure_db(self):
         call_command("migrate", "--no-input")
