@@ -31,7 +31,23 @@ def _build_send_profile(deal) -> dict:
     }
 
 
-def _too_soon_to_nudge(deal) -> bool:
+def _unanswered_count(deal) -> int:
+    """Count consecutive outgoing messages with no reply."""
+    from chat.models import ChatMessage
+    from django.contrib.contenttypes.models import ContentType
+
+    ct = ContentType.objects.get_for_model(type(deal.lead))
+    messages = ChatMessage.objects.filter(content_type=ct, object_id=deal.lead_id)
+
+    last_reply = messages.filter(is_outgoing=False).order_by("-creation_date").first()
+    nudges = messages.filter(is_outgoing=True)
+    if last_reply:
+        nudges = nudges.filter(creation_date__gt=last_reply.creation_date)
+        
+    return nudges.count()
+
+
+def _too_soon_to_nudge(deal, unanswered: int) -> bool:
     """Wait `unanswered_count * MIN_DAYS_PER_UNANSWERED` days between nudges."""
     from chat.models import ChatMessage
     from django.contrib.contenttypes.models import ContentType
@@ -43,12 +59,7 @@ def _too_soon_to_nudge(deal) -> bool:
     if last is None or not last.is_outgoing:
         return False
 
-    last_reply = messages.filter(is_outgoing=False).order_by("-creation_date").first()
-    nudges = messages.filter(is_outgoing=True)
-    if last_reply:
-        nudges = nudges.filter(creation_date__gt=last_reply.creation_date)
-
-    required = timedelta(days=nudges.count() * MIN_DAYS_PER_UNANSWERED)
+    required = timedelta(days=unanswered * MIN_DAYS_PER_UNANSWERED)
     return timezone.now() - last.creation_date < required
 
 
@@ -88,7 +99,13 @@ def handle_follow_up(task, session, qualifiers):
         logger.info("[%s] follow_up %s: lead is flagged for human takeover — skipping AI follow-up", session.campaign, public_id)
         return
 
-    if _too_soon_to_nudge(deal):
+    unanswered = _unanswered_count(deal)
+    if unanswered >= 3:
+        logger.info("[%s] follow_up %s: hit 3 unanswered limit — marking unresponsive", session.campaign, public_id)
+        set_profile_state(session, public_id, ProfileState.COMPLETED.value, outcome="unresponsive")
+        return
+
+    if _too_soon_to_nudge(deal, unanswered):
         logger.info("[%s] follow_up %s: too soon to nudge — re-enqueuing", session.campaign, public_id)
         enqueue_follow_up(campaign_id, public_id, delay_seconds=24 * 3600)
         return
