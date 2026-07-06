@@ -66,7 +66,7 @@ Choose exactly one:
   - `no_budget` — they have the problem but can't or won't pay
   - `has_solution` — they're already using something that works for them
   - `bad_timing` — interested but not now
-  - `unresponsive` — gone cold: no reply after 3+ unanswered outgoing messages **and** the lead never expressed concrete interest, intent to try, or asked a substantive question. A lead who said they'd check it out, asked how it works, or showed curiosity is NOT unresponsive — they're busy. Keep trying.
+  - `unresponsive` — gone cold: no reply after 3 unanswered outgoing messages (1 main + 2 followups). Do NOT send any more messages once 3 unanswered messages have been sent, regardless of prior interest.
 
 ## Timing
 
@@ -74,9 +74,8 @@ You decide the pace. Adapt to the conversation:
 - If the lead is actively replying (replied within hours): follow up in **2-8 hours**
 - Normal async conversation: **24 hours**
 - No reply yet to your last message: **24-48 hours**
-- After 3+ unanswered outgoing messages with no prior buying signal: consider `mark_completed` with outcome `unresponsive`
-- If the lead previously showed interest but stopped replying: space out messages (48-72h between) but keep going up to **5 unanswered** before marking unresponsive
-- A lead who replies with brief but engaged answers ("sounds cool", "will check it out", "both") is **not** unresponsive — they're low-bandwidth. Adjust your pace but don't give up.
+- After 3 unanswered outgoing messages, you MUST select `mark_completed` with outcome `unresponsive`. Never send a 4th message in a row.
+- A lead who replies with brief but engaged answers ("sounds cool", "will check it out", "both") is **not** unresponsive — they're low-bandwidth. Adjust your pace but don't give up (as long as you haven't hit the 3 unanswered message limit).
 
 ## Capabilities and honesty (HARD CONSTRAINTS)
 
