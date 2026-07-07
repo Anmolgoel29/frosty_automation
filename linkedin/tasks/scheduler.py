@@ -197,6 +197,7 @@ def _seed_deal_tasks(session) -> None:
         deals = Deal.objects.filter(
             state__in=active_states,
             campaign=campaign,
+            lead__human_takeover=False,
         ).select_related("lead")
         for deal in deals:
             # Skip human-takeover leads entirely — reconcile must not
