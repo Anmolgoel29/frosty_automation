@@ -16,6 +16,10 @@ class SiteConfigAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    def has_module_permission(self, request):
+        # Hides SiteConfig from the admin index/nav; still reachable by direct URL.
+        return False
+
 
 @admin.register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):

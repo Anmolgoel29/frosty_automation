@@ -131,13 +131,14 @@ Three apps in `INSTALLED_APPS`:
 - **`setup/self_profile.py`** — `discover_self_profile()` — fetches self profile via Voyager API, sets `linkedin_profile.self_lead`.
 - **`setup/seeds.py`** — User-provided seed profiles: parse URLs, create Leads + QUALIFIED Deals.
 - **`management/setup_crm.py`** — Idempotent CRM bootstrap (Site creation).
-- **`admin.py`** — Django Admin: SiteConfig, Campaign, LinkedInProfile, SearchKeyword, ActionLog, Task, ChatMessage.
-- **`django_settings.py`** — Django settings (SQLite at `data/db.sqlite3`). Apps: crm, chat, linkedin.
+- **`admin.py`** — Django Admin: SiteConfig (hidden from nav via `has_module_permission=False`, still reachable by direct URL), Campaign, LinkedInProfile, SearchKeyword, ActionLog, Task, ChatMessage.
+- **`dashboard.py`** — `dashboard_callback(request, context)`, wired via `UNFOLD["DASHBOARD_CALLBACK"]`. Injects outreach stats (messages sent, replies received, connection requests sent/accepted) into the admin index page context; rendered by `templates/admin/index.html` (project-level override, takes precedence over unfold's/django's own `admin/index.html` via `TEMPLATES[0]["DIRS"]`).
+- **`django_settings.py`** — Django settings (SQLite at `data/db.sqlite3`). Apps: crm, chat, linkedin. `TEMPLATES[0]["DIRS"]` includes project-level `templates/` (for the admin dashboard override). `UNFOLD` dict configures the admin theme's dashboard callback.
 
 
 ## Configuration
 
-- **`SiteConfig`** (DB singleton) — `llm_provider` (required, defaults to `openai`; choices: `openai`/`anthropic`/`google`/`groq`/`mistral`/`cohere`/`openai_compatible`), `llm_api_key` (required), `ai_model` (required), `llm_api_base` (required only for `openai_compatible`). Editable via Django Admin.
+- **`SiteConfig`** (DB singleton) — `llm_provider` (required, defaults to `openai`; choices: `openai`/`anthropic`/`google`/`groq`/`mistral`/`cohere`/`openai_compatible`), `llm_api_key` (required), `ai_model` (required), `llm_api_base` (required only for `openai_compatible`). Editable via Django Admin, but hidden from the admin nav (`SiteConfigAdmin.has_module_permission` returns `False`) — reach it via the direct `/admin/linkedin/siteconfig/1/change/` URL.
 - **`conf.py` schedule** — `ENABLE_ACTIVE_HOURS` (`True`), `ACTIVE_START_HOUR` (9), `ACTIVE_END_HOUR` (19), `ACTIVE_TIMEZONE` (system-local IANA name, falls back to "UTC"), `REST_DAYS` ((5, 6) = Sat+Sun). Daemon sleeps outside this window.
 - **`conf.py:CAMPAIGN_CONFIG`** — `min_ready_to_connect_prob` (0.9), `min_positive_pool_prob` (0.20), `connect_delay_seconds` (10), `connect_no_candidate_delay_seconds` (300), `check_pending_recheck_after_hours` (24), `check_pending_jitter_factor` (0.2), `qualification_n_mc_samples` (100), `enrich_min_delay_seconds` (6), `enrich_max_delay_seconds` (10), `enrich_max_per_page` (10), `burst_min_seconds` (2700), `burst_max_seconds` (3900), `break_min_seconds` (600), `break_max_seconds` (1200), `min_action_interval` (120), `embedding_model` ("BAAI/bge-small-en-v1.5").
 - **Prompt templates** (at `linkedin/templates/prompts/`) — `qualify_lead.j2` (temp 0.7), `search_keywords.j2` (temp 0.9), `follow_up_agent.j2`.

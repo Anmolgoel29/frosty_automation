@@ -37,6 +37,10 @@ INSTALLED_APPS = [
     "linkedin",
 ]
 
+UNFOLD = {
+    "DASHBOARD_CALLBACK": "linkedin.dashboard.dashboard_callback",
+}
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -53,7 +57,7 @@ ROOT_URLCONF = "linkedin.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [ROOT_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
