@@ -1,7 +1,9 @@
 playwright
 playwright-stealth
 pydantic
-pydantic-ai-slim[openai,anthropic,google,groq,mistral,cohere,bedrock]
+# Pinned: 1.107+ removed the `OpenAIModel` alias (renamed to `OpenAIChatModel`),
+# which breaks linkedin/llm.py. Stay on 1.106.0 until the code is updated.
+pydantic-ai-slim[openai,anthropic,google,groq,mistral,cohere,bedrock]==1.106.0
 # pydantic-ai 1.96 imports `from griffe import ...`, but griffe 2.x split into an
 # empty `griffelib` meta-package and reorganized symbols. Pin until upstream fixes.
 griffe>=1,<2
