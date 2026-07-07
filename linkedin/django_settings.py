@@ -23,6 +23,18 @@ DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
 
 ALLOWED_HOSTS = ["*"]
 
+# When reaching the admin panel from a remote host/IP (e.g. a VPS) rather than
+# localhost, Django's CSRF check rejects the login POST unless the origin is
+# trusted. Set CSRF_TRUSTED_ORIGINS="http://1.2.3.4:8000,https://crm.example.com".
+# Django requires each entry to include a scheme (http:// or https://) — it has
+# no "*" wildcard like ALLOWED_HOSTS — so entries without "://" (e.g. a bare "*")
+# are dropped rather than crashing startup with the 4_0.E001 system check.
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if "://" in o.strip()
+]
+
 INSTALLED_APPS = [
     "unfold",
     "django.contrib.sites",
@@ -74,6 +86,10 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": str(ROOT_DIR / "data" / "db.sqlite3"),
+        # The daemon and the admin web server write to the same SQLite file
+        # concurrently (both run in the Docker container). A busy timeout lets
+        # a writer wait for the lock instead of erroring with "database is locked".
+        "OPTIONS": {"timeout": 30},
     }
 }
 

@@ -40,14 +40,18 @@ class Command(BaseCommand):
         if not missing_keys():
             return
 
-        if sys.stdin.isatty():
-            apply(collect_from_wizard())
-        else:
-            missing = missing_keys()
+        # collect_from_wizard() is non-interactive: it loads config.json (from
+        # the data dir / cwd / home) or falls back to defaults. Apply whatever
+        # it finds, then re-check.
+        apply(collect_from_wizard())
+
+        missing = missing_keys()
+        if missing:
             self.stderr.write(
-                f"Onboarding incomplete and no TTY available.\n"
+                f"Onboarding incomplete.\n"
                 f"Missing: {', '.join(sorted(missing))}\n"
-                f"Run with an interactive terminal to complete onboarding."
+                f"Provide a config.json (data dir / cwd / ~/.openoutreach/) or "
+                f"configure via the Django Admin panel, then the daemon will start."
             )
             sys.exit(1)
 

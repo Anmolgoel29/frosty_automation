@@ -41,6 +41,11 @@ build: ## build all services defined in Docker Compose
 
 up: ## run the defined service in Docker Compose
 	docker compose -f local.yml up --build -d
+	@echo ""
+	@echo "  Admin panel:      http://localhost:8000/admin/  (login: admin / admin)"
+	@echo "  Browser (web):    http://localhost:6080/vnc.html"
+	@echo "  Browser (native): vnc://localhost:5900  (no password)"
+	@echo ""
 	docker compose -f local.yml logs -f
 
 up-view: ## run the defined service in Docker Compose and open vinagre

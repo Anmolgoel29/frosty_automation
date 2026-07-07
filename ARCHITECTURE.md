@@ -11,7 +11,7 @@ Detailed module documentation for OpenOutreach. See `CLAUDE.md` for rules and qu
 Startup sequence:
 1. **Configure logging** — DEBUG level, suppresses noisy third-party loggers (urllib3, httpx, pydantic_ai, openai, playwright, etc.).
 2. **Ensure DB** — `migrate --no-input` + `setup_crm` (idempotent).
-3. **Onboard** — checks `missing_keys()`; if incomplete: uses `--onboard <config.json>` (non-interactive), falls back to interactive wizard (TTY), or exits with clear error (no TTY).
+3. **Onboard** — checks `missing_keys()`; if incomplete, applies `collect_from_wizard()` (non-interactive: loads `config.json` from data dir / cwd / `~/.openoutreach/`, else defaults). If required fields are still missing, exits with a clear error — the Docker supervisor retries after you finish onboarding via the admin panel or `config.json`.
 4. **Validate** — `LLM_API_KEY`, active `LinkedInProfile`, at least one campaign.
 5. **Session** — `get_or_create_session(profile)`, sets default campaign (first available).
 6. **Newsletter** — Auto-subscription is disabled for self-hosted runs; no outbound signup call is made.
@@ -19,7 +19,7 @@ Startup sequence:
 
 Remote freemium kit import is disabled; the daemon only uses locally configured campaigns.
 
-Docker `start` script handles only Xvfb/VNC setup, then `exec python manage.py rundaemon "$@"`.
+Docker `start` script (`compose/linkedin/start`) sets up Xvfb + VNC, runs `migrate` and an optional `createsuperuser --noinput` (from `DJANGO_SUPERUSER_*` env), then supervises two long-lived processes: the Django admin web server (`runserver 0.0.0.0:8000 --noreload --insecure`, always up) and `rundaemon` (restarts on exit). Both write to the same SQLite file, so a 30s busy timeout is set on the connection.
 
 ### Other management commands
 
@@ -146,7 +146,7 @@ Three apps in `INSTALLED_APPS`:
 
 ## Docker
 
-Base image: `mcr.microsoft.com/playwright/python:v1.55.0-noble`. VNC on port 5900. `BUILD_ENV` arg selects requirements. Dockerfile at `compose/linkedin/Dockerfile`. Install: uv pip → DjangoCRM `--no-deps` → requirements → Playwright chromium.
+`BUILD_ENV` arg selects requirements. Dockerfile at `compose/linkedin/Dockerfile` (two-stage: deps build → runtime; installs Playwright chromium + a VNC stack: Xvfb, x11vnc, websockify, noVNC). One container exposes three ports: **8000** (Django admin panel, always up), **6080** (noVNC in-browser browser view), **5900** (native VNC client). `local.yml` publishes all three and auto-creates a superuser via `DJANGO_SUPERUSER_*` env. See `compose/linkedin/start` for the process supervision.
 
 ## CI/CD
 

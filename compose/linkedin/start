@@ -1,22 +1,70 @@
 #!/bin/bash
-# compose/start
+# compose/linkedin/start
+#
+# Runs three things in one container:
+#   1. Xvfb + VNC  — so you can watch the Playwright browser live.
+#   2. Django admin web server (port 8000) — always up, so the admin panel is
+#      reachable whenever you want, independent of the automation daemon.
+#   3. The automation daemon (rundaemon) — supervised, restarts if it exits.
 
-set -o errexit
 set -o pipefail
 set -o nounset
 
-# Virtual display (always needed — Playwright launches headed mode)
+# ── Virtual display (Playwright launches headed) ─────────────────────
 rm -f /tmp/.X99-lock
 Xvfb :99 -screen 0 1920x1080x24 &
 sleep 1
 export DISPLAY=:99
 
-# VNC remote access (only for open-source local use)
-if [ "${ENABLE_VNC:-false}" = "true" ]; then
-    x11vnc -display :99 -forever -shared -nopw &
+# ── VNC remote access (browser at :6080, native client at :5900) ─────
+if [ "${ENABLE_VNC:-true}" = "true" ]; then
+    x11vnc -display :99 -forever -shared -nopw -rfbport 5900 -bg
     websockify --web /opt/noVNC 6080 localhost:5900 &
 fi
 
-# Run the daemon (migrate + onboard + task queue).
-# Forward any arguments, e.g. --onboard <file>.
-exec python manage.py rundaemon "$@"
+# ── One-time DB setup ────────────────────────────────────────────────
+python manage.py migrate --no-input
+
+# Optional: auto-create a Django superuser from env so you can log into the
+# admin panel. createsuperuser --noinput reads DJANGO_SUPERUSER_* env vars and
+# is a no-op (non-zero, ignored) if the user already exists.
+if [ -n "${DJANGO_SUPERUSER_USERNAME:-}" ] && [ -n "${DJANGO_SUPERUSER_PASSWORD:-}" ]; then
+    python manage.py createsuperuser --noinput 2>/dev/null \
+        && echo "[start] superuser '${DJANGO_SUPERUSER_USERNAME}' created" \
+        || echo "[start] superuser '${DJANGO_SUPERUSER_USERNAME}' already exists"
+fi
+
+# ── Process supervision ──────────────────────────────────────────────
+pids=()
+
+shutdown() {
+    echo "[start] shutting down"
+    kill "${pids[@]}" 2>/dev/null || true
+    wait 2>/dev/null || true
+    exit 0
+}
+trap shutdown SIGTERM SIGINT
+
+# Admin web server — always up. --insecure serves admin static even if
+# DJANGO_DEBUG=false; --noreload keeps a single stable process.
+(
+    while true; do
+        python manage.py runserver 0.0.0.0:8000 --noreload --insecure || true
+        echo "[start] admin web server exited — restarting in 3s"
+        sleep 3
+    done
+) &
+pids+=($!)
+
+# Automation daemon — restarts if it exits (e.g. crash, or waiting for the
+# admin panel / config.json to finish onboarding).
+(
+    while true; do
+        python manage.py rundaemon "$@" || true
+        echo "[start] daemon exited — restarting in 10s"
+        sleep 10
+    done
+) &
+pids+=($!)
+
+wait

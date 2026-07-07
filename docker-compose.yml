@@ -1,0 +1,46 @@
+# docker-compose.yml
+#
+# Deployment compose file. One container runs everything:
+#   Admin panel (always up)     : http://localhost:8000/admin/   (login: admin / admin)
+#   Browser view — noVNC (web)  : http://localhost:6080/vnc.html
+#   Browser view — native VNC   : vnc://localhost:5900           (no password)
+#
+# Data (db.sqlite3, cookies, model blobs, config.json) persists in the named
+# `openoutreach_data` volume mounted at /app/data.
+#
+# For live-code development instead, use local.yml (bind-mounts the repo).
+#
+#   docker compose up -d --build
+#   docker compose logs -f
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./compose/linkedin/Dockerfile
+      args:
+        - BUILD_ENV=production
+    image: openoutreach:latest
+    container_name: openoutreach
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    environment:
+      - ENABLE_VNC=true
+      # Auto-created on first boot so you can log into the admin panel.
+      # CHANGE THE PASSWORD before exposing port 8000 to any network.
+      - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-admin}
+      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-admin}
+      - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
+      # Reaching the admin panel from a remote host/IP? List its origin(s) here,
+      # e.g. CSRF_TRUSTED_ORIGINS=http://1.2.3.4:8000,https://crm.example.com
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-*}
+    volumes:
+      - openoutreach_data:/app/data
+    ports:
+      - "8000:8000"   # Django admin panel
+      - "6080:6080"   # noVNC (browser-based browser viewer)
+      - "5900:5900"   # native VNC client
+
+volumes:
+  openoutreach_data:

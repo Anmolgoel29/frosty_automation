@@ -43,5 +43,8 @@ RUN sed -i 's/\r$//g' /entrypoint /start && chmod +x /entrypoint /start
 COPY --chown=ubuntu:ubuntu . ${APP_HOME}
 RUN chown ubuntu:ubuntu ${APP_HOME}
 
+# 8000 = Django admin panel, 6080 = noVNC (browser), 5900 = native VNC
+EXPOSE 8000 6080 5900
+
 ENTRYPOINT ["/entrypoint"]
 CMD ["/start"]

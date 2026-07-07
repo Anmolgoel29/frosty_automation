@@ -1,4 +1,11 @@
 # local.yml
+#
+# One container runs the admin panel (always up), the automation daemon, and a
+# VNC server so you can watch the Playwright browser.
+#
+#   Admin panel : http://localhost:8000/admin/   (login: admin / admin)
+#   Browser (web VNC) : http://localhost:6080/vnc.html
+#   Browser (native VNC client) : localhost:5900  (no password)
 
 services:
   app:
@@ -14,7 +21,14 @@ services:
       - ENABLE_VNC=true
       - HOST_UID=${HOST_UID:-1000}
       - HOST_GID=${HOST_GID:-1000}
+      # Auto-created on first boot so you can log into the admin panel.
+      # Change these (especially the password) before exposing the panel.
+      - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-admin}
+      - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-admin}
+      - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
     volumes:
       - .:/app
     ports:
-      - "6080:6080"
+      - "8000:8000"   # Django admin panel
+      - "6080:6080"   # noVNC (browser-based browser viewer)
+      - "5900:5900"   # native VNC client
