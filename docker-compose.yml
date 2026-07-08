@@ -21,7 +21,6 @@ services:
       args:
         - BUILD_ENV=production
     image: openoutreach:latest
-    container_name: openoutreach
     restart: unless-stopped
     stdin_open: true
     tty: true
