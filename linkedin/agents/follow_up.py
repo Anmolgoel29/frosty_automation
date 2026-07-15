@@ -163,14 +163,12 @@ def _render_system_prompt(session, deal, recent_messages: list) -> str:
 def run_follow_up_agent(session, deal) -> FollowUpDecision:
     """Read conversation and return a structured follow-up decision.
 
-    Sync chat first (which folds new messages into ``deal.chat_summary``),
-    then render the prompt from the Deal's persistent summaries plus a small
-    recency window of verbatim messages, and ask the LLM to decide.
+    Assumes the caller has already synced the conversation (folding new
+    messages into ``deal.chat_summary``) — this only re-reads the Deal's
+    persistent summaries plus a small recency window of verbatim messages,
+    and asks the LLM to decide.
     """
-    from linkedin.db.chat import sync_conversation
-
     public_id = deal.lead.public_identifier
-    sync_conversation(session, public_id)
     deal.refresh_from_db(fields=["chat_summary", "profile_summary"])
     _log_chat_facts(public_id, deal)
 
@@ -193,6 +191,7 @@ def run_follow_up_agent(session, deal) -> FollowUpDecision:
 if __name__ == "__main__":
     from crm.models import Deal
     from linkedin.browser.registry import cli_parser, cli_session
+    from linkedin.db.chat import sync_conversation
     from linkedin.db.summaries import materialize_profile_summary_if_missing
     from linkedin.models import Task
 
@@ -226,6 +225,7 @@ if __name__ == "__main__":
     logger.info("Running follow-up agent as %s for %s", session, public_id)
     logger.info("Campaign: %s", session.campaign)
 
+    sync_conversation(session, public_id)
     materialize_profile_summary_if_missing(deal, session)
     decision = run_follow_up_agent(session, deal)
 

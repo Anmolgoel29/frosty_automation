@@ -60,7 +60,7 @@ Three task types (handlers in `linkedin/tasks/`, signature: `handle_*(task, sess
 
 1. **`handle_connect`** — Uses `ConnectStrategy` dataclass with `find_candidate()` from `pools.py`. Unreachable detection after `MAX_CONNECT_ATTEMPTS` (3).
 2. **`handle_check_pending`** — Per-profile. Exponential backoff with jitter. On acceptance → enqueues `follow_up`.
-3. **`handle_follow_up`** — Per-profile. Calls `run_follow_up_agent()` which returns a `FollowUpDecision` (structured output: `send_message`/`mark_completed`/`wait`). Handler executes the decision deterministically.
+3. **`handle_follow_up`** — Per-profile. Syncs the conversation (`db/chat.py:sync_conversation`) *before* evaluating `_unanswered_count`/`_too_soon_to_nudge` — both read local `ChatMessage` rows, so gating on them pre-sync would judge a reply that already arrived on LinkedIn by stale local state (and just re-enqueue without ever seeing it; this also made the Task admin's "Run now" action a no-op against a fresh reply). `_too_soon_to_nudge` requires `unanswered_count * MIN_DAYS_PER_UNANSWERED` (3) days of silence since the last *outgoing* message — it returns `False` immediately once the most recent message is an incoming reply, so a synced reply always clears the cooldown. After the gates pass, calls `run_follow_up_agent()` (assumes the caller already synced) which returns a `FollowUpDecision` (structured output: `send_message`/`mark_completed`/`wait`). Handler executes the decision deterministically.
 
 ## Qualification ML Pipeline
 
