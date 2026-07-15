@@ -302,10 +302,11 @@ class TestHandleCheckPending:
 
 @pytest.mark.django_db
 class TestHandleFollowUp:
+    @patch("linkedin.db.chat.sync_conversation")
     @patch("linkedin.db.summaries.materialize_profile_summary_if_missing")
     @patch("linkedin.actions.message.send_raw_message", return_value=True)
     @patch("linkedin.agents.follow_up.run_follow_up_agent")
-    def test_send_message_records_action_and_enqueues(self, mock_agent, mock_send, mock_materialize, fake_session):
+    def test_send_message_records_action_and_enqueues(self, mock_agent, mock_send, mock_materialize, mock_sync, fake_session):
         mock_agent.return_value = FollowUpDecision(
             action="send_message", message="Hello Alice!", follow_up_hours=72,
         )
@@ -333,10 +334,11 @@ class TestHandleFollowUp:
         assert ActionLog.objects.filter(action_type=ActionLog.ActionType.FOLLOW_UP).count() == 1
         assert Task.objects.filter(task_type=Task.TaskType.FOLLOW_UP, status=Task.Status.PENDING).exists()
 
+    @patch("linkedin.db.chat.sync_conversation")
     @patch("linkedin.db.summaries.materialize_profile_summary_if_missing")
     @patch("linkedin.actions.message.send_raw_message", return_value=False)
     @patch("linkedin.agents.follow_up.run_follow_up_agent")
-    def test_send_failure_resets_to_connected_and_reenqueues(self, mock_agent, mock_send, mock_materialize, fake_session):
+    def test_send_failure_resets_to_connected_and_reenqueues(self, mock_agent, mock_send, mock_materialize, mock_sync, fake_session):
         mock_agent.return_value = FollowUpDecision(
             action="send_message", message="Hi!", follow_up_hours=24,
         )
@@ -353,9 +355,10 @@ class TestHandleFollowUp:
         deal = Deal.objects.get(lead__public_identifier="alice", campaign=fake_session.campaign)
         assert deal.state == ProfileState.QUALIFIED
 
+    @patch("linkedin.db.chat.sync_conversation")
     @patch("linkedin.db.summaries.materialize_profile_summary_if_missing")
     @patch("linkedin.agents.follow_up.run_follow_up_agent")
-    def test_mark_completed_sets_state(self, mock_agent, mock_materialize, fake_session):
+    def test_mark_completed_sets_state(self, mock_agent, mock_materialize, mock_sync, fake_session):
         mock_agent.return_value = FollowUpDecision(
             action="mark_completed", outcome="unresponsive", follow_up_hours=0,
         )
@@ -373,9 +376,10 @@ class TestHandleFollowUp:
         assert deal.state == ProfileState.COMPLETED
         assert not Task.objects.filter(task_type=Task.TaskType.FOLLOW_UP, status=Task.Status.PENDING).exists()
 
+    @patch("linkedin.db.chat.sync_conversation")
     @patch("linkedin.db.summaries.materialize_profile_summary_if_missing")
     @patch("linkedin.agents.follow_up.run_follow_up_agent")
-    def test_wait_enqueues_follow_up(self, mock_agent, mock_materialize, fake_session):
+    def test_wait_enqueues_follow_up(self, mock_agent, mock_materialize, mock_sync, fake_session):
         mock_agent.return_value = FollowUpDecision(
             action="wait", follow_up_hours=48,
         )
@@ -390,6 +394,56 @@ class TestHandleFollowUp:
 
         assert ActionLog.objects.filter(action_type=ActionLog.ActionType.FOLLOW_UP).count() == 0
         assert Task.objects.filter(task_type=Task.TaskType.FOLLOW_UP, status=Task.Status.PENDING).exists()
+
+    @patch("linkedin.db.chat.sync_conversation")
+    @patch("linkedin.db.summaries.materialize_profile_summary_if_missing")
+    @patch("linkedin.agents.follow_up.run_follow_up_agent")
+    def test_fresh_reply_synced_mid_handler_bypasses_too_soon_gate(
+        self, mock_agent, mock_materialize, mock_sync, fake_session,
+    ):
+        """A reply that only exists on LinkedIn (not yet in the local DB) must be
+        synced before the too-soon-to-nudge gate runs, or the gate blocks on
+        stale state and the handler re-enqueues without ever seeing the reply."""
+        from crm.models import Lead
+        from django.contrib.contenttypes.models import ContentType
+
+        from chat.models import ChatMessage
+
+        mock_agent.return_value = FollowUpDecision(action="wait", follow_up_hours=48)
+        _make_connected(fake_session)
+
+        lead = Lead.objects.get(public_identifier="alice")
+        ct = ContentType.objects.get_for_model(lead)
+
+        # A nudge sent an hour ago — within the 3-day cooldown, so
+        # _too_soon_to_nudge would block on this alone.
+        ChatMessage.objects.create(
+            content_type=ct, object_id=lead.pk, content="following up",
+            is_outgoing=True, owner=fake_session.django_user,
+            linkedin_urn="urn:test:out1",
+            creation_date=timezone.now() - timedelta(hours=1),
+        )
+
+        # sync_conversation (called by the handler before the gate) pulls
+        # down a reply that arrived on LinkedIn since the last local sync.
+        def fake_sync(session, public_id):
+            ChatMessage.objects.create(
+                content_type=ct, object_id=lead.pk, content="actually interested!",
+                is_outgoing=False, owner=fake_session.django_user,
+                linkedin_urn="urn:test:in1",
+                creation_date=timezone.now(),
+            )
+        mock_sync.side_effect = fake_sync
+
+        task = _make_task(
+            Task.TaskType.FOLLOW_UP,
+            {"campaign_id": fake_session.campaign.pk, "public_id": "alice"},
+        )
+        qualifiers = _build_context(fake_session)
+        handle_follow_up(task, fake_session, qualifiers)
+
+        mock_sync.assert_called_once()
+        mock_agent.assert_called_once()
 
     @patch("linkedin.agents.follow_up.run_follow_up_agent")
     def test_noop_when_deal_missing(self, mock_agent, fake_session):

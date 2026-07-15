@@ -67,6 +67,7 @@ def handle_follow_up(task, session, qualifiers):
     from crm.models import Deal
     from linkedin.actions.message import send_raw_message
     from linkedin.agents.follow_up import run_follow_up_agent
+    from linkedin.db.chat import sync_conversation
     from linkedin.db.deals import set_profile_state
     from linkedin.db.summaries import materialize_profile_summary_if_missing
     from linkedin.enums import ProfileState
@@ -98,6 +99,14 @@ def handle_follow_up(task, session, qualifiers):
     if deal.lead.human_takeover:
         logger.info("[%s] follow_up %s: lead is flagged for human takeover — skipping AI follow-up", session.campaign, public_id)
         return
+
+    # Pull the latest messages before gating on them — otherwise a reply that
+    # just arrived on LinkedIn is invisible to _unanswered_count /
+    # _too_soon_to_nudge (they read local ChatMessage rows), and the handler
+    # re-enqueues on stale state instead of ever seeing the reply. This also
+    # makes the admin's "Run now" action actually respond to a fresh reply
+    # instead of silently re-enqueuing.
+    sync_conversation(session, public_id)
 
     unanswered = _unanswered_count(deal)
     if unanswered >= 3:

@@ -38,6 +38,7 @@ _HANDLERS = {
 
 HEARTBEAT_INTERVAL = 300  # 5 minutes
 HEARTBEAT_SLICE = 60      # wake every minute during long sleeps
+QUEUE_POLL_INTERVAL = 60  # re-check the queue at least this often while waiting
 
 
 # ── Heartbeat ────────────────────────────────────────────────────────
@@ -228,9 +229,15 @@ def run_daemon(session):
             if wait > 0:
                 h, m = int(wait // 3600), int(wait % 3600 // 60)
                 logger.info("Next task in %dh%02dm — sleeping", h, m)
-                sleep_with_heartbeat(
-                    wait, heartbeat, f"next task in {h}h{m:02d}m",
-                )
+                # Poll in short slices (rather than one long sleep) so a task
+                # rescheduled to run sooner — e.g. via the "Run now" admin
+                # action — is picked up within QUEUE_POLL_INTERVAL instead of
+                # waiting out the originally-computed delay.
+                while wait is not None and wait > 0:
+                    sleep_with_heartbeat(
+                        min(wait, QUEUE_POLL_INTERVAL), heartbeat, f"next task in {h}h{m:02d}m",
+                    )
+                    wait = Task.objects.seconds_to_next()
                 rhythm.reset()
             continue
 
