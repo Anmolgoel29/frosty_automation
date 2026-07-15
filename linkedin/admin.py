@@ -1,5 +1,6 @@
 # linkedin/admin.py
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.utils import timezone
 
 from chat.models import ChatMessage
 
@@ -59,6 +60,26 @@ class TaskAdmin(admin.ModelAdmin):
         "created_at", "started_at", "completed_at",
     )
     date_hierarchy = "scheduled_at"
+    actions = ["run_now"]
+
+    @admin.action(description="Run now (jump the queue)")
+    def run_now(self, request, queryset):
+        pending = queryset.filter(status=Task.Status.PENDING)
+        skipped = queryset.exclude(status=Task.Status.PENDING).count()
+        updated = pending.update(scheduled_at=timezone.now())
+
+        if updated:
+            self.message_user(
+                request,
+                f"{updated} task(s) rescheduled to run now — the daemon will "
+                "pick them up within about a minute.",
+            )
+        if skipped:
+            self.message_user(
+                request,
+                f"{skipped} task(s) skipped — only pending tasks can be run now.",
+                level=messages.WARNING,
+            )
 
 
 @admin.register(ChatMessage)

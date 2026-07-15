@@ -54,6 +54,8 @@ Task creation is centralized in `linkedin/tasks/scheduler.py`. No other module i
 
 The daemon calls `reconcile()` whenever the queue has no ready task — startup and every idle cycle. This is the retry mechanism: a handler that crashes mid-execution leaves a FAILED task with no successor, and the next idle cycle re-creates it from the Deal's state. `AuthenticationError` (401) triggers `session.reauthenticate()` then marks the task FAILED; reconcile picks it up.
 
+When idle, the daemon doesn't sleep for the full delay until the next `scheduled_at` in one block — it polls in `QUEUE_POLL_INTERVAL` (60s) slices, rechecking `Task.objects.seconds_to_next()` between each. This bounds how long a task rescheduled to run sooner (e.g. via the Task admin's "Run now" action, below) takes to actually start — at most ~60s, regardless of how far out it was originally scheduled.
+
 Three task types (handlers in `linkedin/tasks/`, signature: `handle_*(task, session, qualifiers)`):
 
 1. **`handle_connect`** — Uses `ConnectStrategy` dataclass with `find_candidate()` from `pools.py`. Unreachable detection after `MAX_CONNECT_ATTEMPTS` (3).
@@ -131,7 +133,7 @@ Three apps in `INSTALLED_APPS`:
 - **`setup/self_profile.py`** — `discover_self_profile()` — fetches self profile via Voyager API, sets `linkedin_profile.self_lead`.
 - **`setup/seeds.py`** — User-provided seed profiles: parse URLs, create Leads + QUALIFIED Deals.
 - **`management/setup_crm.py`** — Idempotent CRM bootstrap (Site creation).
-- **`admin.py`** — Django Admin: SiteConfig (hidden from nav via `has_module_permission=False`, still reachable by direct URL), Campaign, LinkedInProfile, SearchKeyword, ActionLog, Task, ChatMessage.
+- **`admin.py`** — Django Admin: SiteConfig (hidden from nav via `has_module_permission=False`, still reachable by direct URL), Campaign, LinkedInProfile, SearchKeyword, ActionLog, Task, ChatMessage. `TaskAdmin` has a "Run now" bulk action (`run_now`) that sets `scheduled_at = timezone.now()` on selected PENDING tasks (no-op on non-pending selections, reported via a warning message) — the standard way to make a future-dated task (e.g. a `follow_up` waiting out its backoff) run immediately, such as when a lead has just replied and you want the AI to respond without waiting for the scheduled check.
 - **`dashboard.py`** — `dashboard_callback(request, context)`, wired via `UNFOLD["DASHBOARD_CALLBACK"]`. Injects outreach stats (messages sent, replies received, connection requests sent/accepted) into the admin index page context; rendered by `templates/admin/index.html` (project-level override, takes precedence over unfold's/django's own `admin/index.html` via `TEMPLATES[0]["DIRS"]`).
 - **`django_settings.py`** — Django settings (SQLite at `data/db.sqlite3`). Apps: crm, chat, linkedin. `TEMPLATES[0]["DIRS"]` includes project-level `templates/` (for the admin dashboard override). `UNFOLD` dict configures the admin theme's dashboard callback.
 
