@@ -3,18 +3,23 @@
 Configuration is split between environment variables (`.env` file), Django models (managed via interactive
 onboarding or Django Admin), and hardcoded defaults in `linkedin/conf.py`.
 
-## LLM Configuration (`.env`)
+## LLM Configuration
 
-LLM settings are stored in `.env` (project root). Any
-OpenAI-compatible provider works. These are prompted during interactive onboarding if missing.
+LLM settings are stored on the `SiteConfig` DB singleton (editable via Django Admin, or prompted
+during interactive onboarding if missing). There are two independent configurations — a
+higher-end model for messaging/chat and a cheaper/faster model for everything else — each can use
+a different provider.
 
 | Variable | Description | Default |
 |:---------|:------------|:--------|
-| `LLM_API_KEY` | API key for an OpenAI-compatible provider. | (required) |
-| `AI_MODEL` | Model identifier for qualification, follow-up, and search keyword generation. | (required) |
-| `LLM_API_BASE` | Base URL for the API endpoint. | (none) |
-
-These can also be set as environment variables directly.
+| `CHAT_LLM_PROVIDER` | Provider for the follow-up messaging agent (openai/anthropic/google/groq/mistral/cohere/openai_compatible). | `openai` |
+| `CHAT_LLM_API_KEY` | API key for the chat provider. | (required) |
+| `CHAT_AI_MODEL` | Model identifier used for follow-up message generation. | (required) |
+| `CHAT_LLM_API_BASE` | Base URL, only used when `CHAT_LLM_PROVIDER=openai_compatible`. | (none) |
+| `TASK_LLM_PROVIDER` | Provider for qualification, search-keyword generation, and fact extraction. | `openai` |
+| `TASK_LLM_API_KEY` | API key for the task provider. | (required) |
+| `TASK_AI_MODEL` | Model identifier used for qualification, keyword generation, and fact extraction. | (required) |
+| `TASK_LLM_API_BASE` | Base URL, only used when `TASK_LLM_PROVIDER=openai_compatible`. | (none) |
 
 ## Campaign Settings (Django Model)
 

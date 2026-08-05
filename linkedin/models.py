@@ -18,7 +18,15 @@ _RATE_LIMIT_FIELDS = {
 
 
 class SiteConfig(models.Model):
-    """Singleton model for global site configuration (LLM keys, etc.)."""
+    """Singleton model for global site configuration (LLM keys, etc.).
+
+    Two independent LLM configurations: `chat_*` powers the follow-up
+    messaging agent (the only place that composes text sent to leads) and
+    is meant for a higher-end model. `task_*` powers everything else
+    (qualification, search-keyword generation, fact extraction/reconcile)
+    and is meant for a cheaper/faster model. Each has its own provider, key,
+    model name, and base URL — they don't need to share a vendor.
+    """
 
     class LLMProvider(models.TextChoices):
         OPENAI = "openai", "OpenAI"
@@ -29,14 +37,23 @@ class SiteConfig(models.Model):
         COHERE = "cohere", "Cohere"
         OPENAI_COMPATIBLE = "openai_compatible", "OpenAI-compatible"
 
-    llm_provider = models.CharField(
+    chat_llm_provider = models.CharField(
         max_length=32,
         choices=LLMProvider.choices,
         default=LLMProvider.OPENAI,
     )
-    llm_api_key = models.CharField(max_length=500, blank=True, default="")
-    ai_model = models.CharField(max_length=200, blank=True, default="")
-    llm_api_base = models.CharField(max_length=500, blank=True, default="")
+    chat_llm_api_key = models.CharField(max_length=500, blank=True, default="")
+    chat_ai_model = models.CharField(max_length=200, blank=True, default="")
+    chat_llm_api_base = models.CharField(max_length=500, blank=True, default="")
+
+    task_llm_provider = models.CharField(
+        max_length=32,
+        choices=LLMProvider.choices,
+        default=LLMProvider.OPENAI,
+    )
+    task_llm_api_key = models.CharField(max_length=500, blank=True, default="")
+    task_ai_model = models.CharField(max_length=200, blank=True, default="")
+    task_llm_api_base = models.CharField(max_length=500, blank=True, default="")
 
     class Meta:
         app_label = "linkedin"

@@ -297,10 +297,14 @@ class OnboardConfig:
     campaign_objective: str = ""
     booking_link: str = ""
     seed_urls: str = ""
-    llm_provider: str = "openai"
-    llm_api_key: str = ""
-    ai_model: str = ""
-    llm_api_base: str = ""
+    chat_llm_provider: str = "openai"
+    chat_llm_api_key: str = ""
+    chat_ai_model: str = ""
+    chat_llm_api_base: str = ""
+    task_llm_provider: str = "openai"
+    task_llm_api_key: str = ""
+    task_ai_model: str = ""
+    task_llm_api_base: str = ""
     newsletter: bool = False
     connect_daily_limit: int = DEFAULT_CONNECT_DAILY_LIMIT
     connect_weekly_limit: int = DEFAULT_CONNECT_WEEKLY_LIMIT
@@ -321,7 +325,10 @@ _ACCOUNT_KEYS = {
     "connect_daily_limit", "connect_weekly_limit", "follow_up_daily_limit",
     "legal_acceptance",
 }
-_LLM_KEYS = {"llm_provider", "llm_api_key", "ai_model", "llm_api_base"}
+_LLM_KEYS = {
+    "chat_llm_provider", "chat_llm_api_key", "chat_ai_model", "chat_llm_api_base",
+    "task_llm_provider", "task_llm_api_key", "task_ai_model", "task_llm_api_base",
+}
 _ALL_KEYS = _CAMPAIGN_KEYS | _ACCOUNT_KEYS | _LLM_KEYS
 
 
@@ -338,15 +345,19 @@ def missing_keys() -> set[str]:
         keys |= _ACCOUNT_KEYS
 
     cfg = SiteConfig.load()
-    if not cfg.llm_provider:
-        keys.add("llm_provider")
-    if not cfg.llm_api_key:
-        keys.add("llm_api_key")
-    if not cfg.ai_model:
-        keys.add("ai_model")
-    # llm_api_base is only required for the openai_compatible provider.
-    if cfg.llm_provider == SiteConfig.LLMProvider.OPENAI_COMPATIBLE and not cfg.llm_api_base:
-        keys.add("llm_api_base")
+    for role in ("chat", "task"):
+        if not getattr(cfg, f"{role}_llm_provider"):
+            keys.add(f"{role}_llm_provider")
+        if not getattr(cfg, f"{role}_llm_api_key"):
+            keys.add(f"{role}_llm_api_key")
+        if not getattr(cfg, f"{role}_ai_model"):
+            keys.add(f"{role}_ai_model")
+        # llm_api_base is only required for the openai_compatible provider.
+        if (
+            getattr(cfg, f"{role}_llm_provider") == SiteConfig.LLMProvider.OPENAI_COMPATIBLE
+            and not getattr(cfg, f"{role}_llm_api_base")
+        ):
+            keys.add(f"{role}_llm_api_base")
 
     return keys
 
@@ -507,10 +518,14 @@ def apply(config: OnboardConfig) -> None:
     cfg = SiteConfig.load()
     updated = False
     for field, val in [
-        ("llm_provider", config.llm_provider),
-        ("llm_api_key", config.llm_api_key),
-        ("ai_model", config.ai_model),
-        ("llm_api_base", config.llm_api_base),
+        ("chat_llm_provider", config.chat_llm_provider),
+        ("chat_llm_api_key", config.chat_llm_api_key),
+        ("chat_ai_model", config.chat_ai_model),
+        ("chat_llm_api_base", config.chat_llm_api_base),
+        ("task_llm_provider", config.task_llm_provider),
+        ("task_llm_api_key", config.task_llm_api_key),
+        ("task_ai_model", config.task_ai_model),
+        ("task_llm_api_base", config.task_llm_api_base),
     ]:
         if val:
             setattr(cfg, field, val)

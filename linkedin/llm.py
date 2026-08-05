@@ -2,8 +2,10 @@
 
 Two public entry points:
 
-- `get_llm_model()` — builds a `pydantic_ai.Model` from `SiteConfig`,
-  routing to the right provider.
+- `get_llm_model(role)` — builds a `pydantic_ai.Model` from `SiteConfig`,
+  routing to the right provider. `role` selects which of the two
+  independently-configured models to use: "chat" (higher-end, the
+  follow-up messaging agent) or "task" (cheaper/faster, everything else).
 - `run_agent_sync(coro)` — drives a pydantic-ai coroutine to completion
   from sync code, on a dedicated worker thread with a long-lived event
   loop. Used everywhere instead of `Agent.run_sync`.
@@ -29,9 +31,11 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import Awaitable, Callable, TypeVar
+from typing import Awaitable, Callable, Literal, TypeVar
 
 _T = TypeVar("_T")
+
+Role = Literal["chat", "task"]
 
 # Override the SDK default of 2. Each retry uses the SDK's built-in jittered
 # exponential backoff and honors `Retry-After`, so 8 attempts ride through
@@ -87,57 +91,58 @@ def run_agent_sync(coro: Awaitable[_T]) -> _T:
 
 
 # ── Per-provider builders ────────────────────────────────────────────
+#
+# Each builder takes the resolved (model_name, api_key, api_base) for a
+# single role — callers never see the two-role SiteConfig split.
 
-def _build_openai(cfg):
+def _build_openai(model_name, api_key, api_base=None):
     from openai import AsyncOpenAI
     from pydantic_ai.models.openai import OpenAIModel
     from pydantic_ai.providers.openai import OpenAIProvider
-    client = AsyncOpenAI(api_key=cfg.llm_api_key, max_retries=_MAX_RETRIES)
-    return OpenAIModel(cfg.ai_model, provider=OpenAIProvider(openai_client=client))
+    client = AsyncOpenAI(api_key=api_key, max_retries=_MAX_RETRIES)
+    return OpenAIModel(model_name, provider=OpenAIProvider(openai_client=client))
 
 
-def _build_anthropic(cfg):
+def _build_anthropic(model_name, api_key, api_base=None):
     from anthropic import AsyncAnthropic
     from pydantic_ai.models.anthropic import AnthropicModel
     from pydantic_ai.providers.anthropic import AnthropicProvider
-    client = AsyncAnthropic(api_key=cfg.llm_api_key, max_retries=_MAX_RETRIES)
-    return AnthropicModel(cfg.ai_model, provider=AnthropicProvider(anthropic_client=client))
+    client = AsyncAnthropic(api_key=api_key, max_retries=_MAX_RETRIES)
+    return AnthropicModel(model_name, provider=AnthropicProvider(anthropic_client=client))
 
 
-def _build_google(cfg):
+def _build_google(model_name, api_key, api_base=None):
     from pydantic_ai.models.google import GoogleModel
     from pydantic_ai.providers.google import GoogleProvider
-    return GoogleModel(cfg.ai_model, provider=GoogleProvider(api_key=cfg.llm_api_key))
+    return GoogleModel(model_name, provider=GoogleProvider(api_key=api_key))
 
 
-def _build_groq(cfg):
+def _build_groq(model_name, api_key, api_base=None):
     from groq import AsyncGroq
     from pydantic_ai.models.groq import GroqModel
     from pydantic_ai.providers.groq import GroqProvider
-    client = AsyncGroq(api_key=cfg.llm_api_key, max_retries=_MAX_RETRIES)
-    return GroqModel(cfg.ai_model, provider=GroqProvider(groq_client=client))
+    client = AsyncGroq(api_key=api_key, max_retries=_MAX_RETRIES)
+    return GroqModel(model_name, provider=GroqProvider(groq_client=client))
 
 
-def _build_mistral(cfg):
+def _build_mistral(model_name, api_key, api_base=None):
     from pydantic_ai.models.mistral import MistralModel
     from pydantic_ai.providers.mistral import MistralProvider
-    return MistralModel(cfg.ai_model, provider=MistralProvider(api_key=cfg.llm_api_key))
+    return MistralModel(model_name, provider=MistralProvider(api_key=api_key))
 
 
-def _build_cohere(cfg):
+def _build_cohere(model_name, api_key, api_base=None):
     from pydantic_ai.models.cohere import CohereModel
     from pydantic_ai.providers.cohere import CohereProvider
-    return CohereModel(cfg.ai_model, provider=CohereProvider(api_key=cfg.llm_api_key))
+    return CohereModel(model_name, provider=CohereProvider(api_key=api_key))
 
 
-def _build_openai_compatible(cfg):
-    if not cfg.llm_api_base:
+def _build_openai_compatible(model_name, api_key, api_base=None):
+    if not api_base:
         raise ValueError("LLM_API_BASE is required for the openai_compatible provider.")
     from pydantic_ai.models.openai import OpenAIModel
     from pydantic_ai.providers.openai import OpenAIProvider
-    return OpenAIModel(cfg.ai_model, provider=OpenAIProvider(
-        base_url=cfg.llm_api_base, api_key=cfg.llm_api_key,
-    ))
+    return OpenAIModel(model_name, provider=OpenAIProvider(base_url=api_base, api_key=api_key))
 
 
 _PROVIDER_BUILDERS: dict[str, Callable] = {
@@ -153,22 +158,33 @@ _PROVIDER_BUILDERS: dict[str, Callable] = {
 
 # ── Model factory ────────────────────────────────────────────────────
 
-def _validated_site_config():
-    """Load `SiteConfig` and assert the required LLM fields are populated."""
+def _validated_role_config(role: Role):
+    """Load `SiteConfig` and assert the required `{role}_*` fields are populated."""
     from linkedin.models import SiteConfig
 
     cfg = SiteConfig.load()
-    if not cfg.llm_api_key:
-        raise ValueError("LLM_API_KEY is not set in Site Configuration.")
-    if not cfg.ai_model:
-        raise ValueError("AI_MODEL is not set in Site Configuration.")
-    return cfg
+    provider = getattr(cfg, f"{role}_llm_provider")
+    api_key = getattr(cfg, f"{role}_llm_api_key")
+    model_name = getattr(cfg, f"{role}_ai_model")
+    api_base = getattr(cfg, f"{role}_llm_api_base")
+
+    if not api_key:
+        raise ValueError(f"{role.upper()}_LLM_API_KEY is not set in Site Configuration.")
+    if not model_name:
+        raise ValueError(f"{role.upper()}_AI_MODEL is not set in Site Configuration.")
+    return provider, model_name, api_key, api_base
 
 
-def get_llm_model():
-    """Return a configured pydantic-ai `Model` for the current `SiteConfig`."""
-    cfg = _validated_site_config()
-    builder = _PROVIDER_BUILDERS.get(cfg.llm_provider)
+def get_llm_model(role: Role):
+    """Return a configured pydantic-ai `Model` for the given role.
+
+    `role="chat"` is the higher-end model used by the follow-up messaging
+    agent (the only place that composes text sent to leads). `role="task"`
+    is the cheaper/faster model used for everything else — qualification,
+    search-keyword generation, fact extraction/reconcile.
+    """
+    provider, model_name, api_key, api_base = _validated_role_config(role)
+    builder = _PROVIDER_BUILDERS.get(provider)
     if builder is None:
-        raise ValueError(f"Unknown LLM provider: {cfg.llm_provider!r}")
-    return builder(cfg)
+        raise ValueError(f"Unknown LLM provider: {provider!r}")
+    return builder(model_name, api_key, api_base)

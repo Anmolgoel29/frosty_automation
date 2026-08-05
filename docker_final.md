@@ -47,10 +47,14 @@ cat > /home/outreach/openoutreach_data/config.json << 'EOF'
   "campaign_objective": "Your target market and goals",
   "booking_link": "https://calendly.com/your-link",
   "seed_urls": "",
-  "llm_provider": "groq",
-  "llm_api_key": "your_api_key_here",
-  "ai_model": "mixtral-8x7b-32768",
-  "llm_api_base": "",
+  "chat_llm_provider": "anthropic",
+  "chat_llm_api_key": "your_chat_api_key_here",
+  "chat_ai_model": "claude-sonnet-5",
+  "chat_llm_api_base": "",
+  "task_llm_provider": "groq",
+  "task_llm_api_key": "your_task_api_key_here",
+  "task_ai_model": "mixtral-8x7b-32768",
+  "task_llm_api_base": "",
   "newsletter": false,
   "connect_daily_limit": 10,
   "connect_weekly_limit": 50,
@@ -201,7 +205,8 @@ docker exec openoutreach python manage.py shell << 'EOF'
 from linkedin.models import Campaign, LinkedInProfile, SiteConfig
 print(f"Campaign: {Campaign.objects.first()}")
 print(f"Account: {LinkedInProfile.objects.first()}")
-print(f"LLM: {SiteConfig.load().ai_model}")
+cfg = SiteConfig.load()
+print(f"Chat LLM: {cfg.chat_ai_model}  Task LLM: {cfg.task_ai_model}")
 EOF
 ```
 
@@ -448,10 +453,14 @@ cat > /home/outreach/openoutreach_data/config.json << 'EOF'
   "campaign_objective": "Your objective",
   "booking_link": "https://calendly.com/link",
   "seed_urls": "",
-  "llm_provider": "groq",
-  "llm_api_key": "your_key",
-  "ai_model": "mixtral-8x7b-32768",
-  "llm_api_base": "",
+  "chat_llm_provider": "anthropic",
+  "chat_llm_api_key": "your_chat_key",
+  "chat_ai_model": "claude-sonnet-5",
+  "chat_llm_api_base": "",
+  "task_llm_provider": "groq",
+  "task_llm_api_key": "your_task_key",
+  "task_ai_model": "mixtral-8x7b-32768",
+  "task_llm_api_base": "",
   "newsletter": false,
   "connect_daily_limit": 10,
   "connect_weekly_limit": 50,

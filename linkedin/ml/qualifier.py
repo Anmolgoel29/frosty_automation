@@ -63,7 +63,7 @@ def qualify_with_llm(profile_text: str, product_docs: str, campaign_objective: s
     )
 
     agent = Agent(
-        get_llm_model(),
+        get_llm_model("task"),
         output_type=QualificationDecision,
         model_settings={"temperature": 0.7, "timeout": 60},
     )

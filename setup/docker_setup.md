@@ -270,21 +270,25 @@ In Django Admin (/admin/linkedin/campaign/), you can:
 
 ### LLM Model Switching
 
-To use a different LLM model during runtime:
+LLM settings live on the `SiteConfig` DB row, not environment variables — edit via Django Admin
+(SiteConfig model, reachable by direct URL at `/admin/linkedin/siteconfig/1/change/`) and restart
+the daemon. There are two independent model slots: `chat_ai_model` (higher-end, used only by the
+follow-up messaging agent) and `task_ai_model` (cheaper/faster, used for qualification, search
+keywords, and fact extraction) — each with its own provider/key/base.
 
 ```bash
-# Enter container
-docker exec -it <container-id> bash
-
-# Update environment variable
-export AI_MODEL=gpt-4-turbo
-export LLM_API_KEY=your_new_key
+# Or from a shell in the container:
+docker exec -it <container-id> python manage.py shell -c "
+from linkedin.models import SiteConfig
+cfg = SiteConfig.load()
+cfg.chat_ai_model = 'gpt-4o'
+cfg.task_ai_model = 'gpt-4o-mini'
+cfg.save()
+"
 
 # Restart daemon
-python manage.py rundaemon
+docker exec -it <container-id> python manage.py rundaemon
 ```
-
-Or edit via Django Admin (SiteConfig model) and restart.
 
 ---
 

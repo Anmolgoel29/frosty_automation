@@ -27,10 +27,11 @@ Follow-up behavior is controlled by:
   - `campaign_objective` — campaign goal, used as context for the agent.
   - `booking_link` — included naturally in messages when suggesting a meeting.
 
-- **LLM settings** (via `.env` or environment variables):
-  - `LLM_API_KEY` — required for the agent to function.
-  - `AI_MODEL` — model used for message generation.
-  - `LLM_API_BASE` — optional base URL for OpenAI-compatible providers.
+- **LLM settings** (`SiteConfig`, via Django Admin) — the `chat_*` group only, since this agent
+  is the one composing text sent to leads:
+  - `chat_llm_api_key` — required for the agent to function.
+  - `chat_ai_model` — model used for message generation.
+  - `chat_llm_api_base` — optional base URL, only used when `chat_llm_provider=openai_compatible`.
 
 ## Available Variables in the System Prompt
 
