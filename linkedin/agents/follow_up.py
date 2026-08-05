@@ -109,6 +109,11 @@ def _format_facts(summary: dict | None) -> str:
     return "\n".join(f"- {f}" for f in facts)
 
 
+def _replace_em_dashes(text: str) -> str:
+    """Replace em dashes with plain hyphens — LLMs overuse them; humans don't type them."""
+    return text.replace("—", "-")
+
+
 def _log_chat_facts(public_id: str, deal) -> None:
     """Log the mem0 chat facts the agent is working with."""
     chat_facts = (deal.chat_summary or {}).get("facts", [])
@@ -183,6 +188,8 @@ def run_follow_up_agent(session, deal) -> FollowUpDecision:
     decision = run_agent_sync(agent.run(system_prompt)).output
     if decision is None:
         raise RuntimeError(f"LLM returned unparseable response for follow-up of {public_id}")
+    if decision.message:
+        decision.message = _replace_em_dashes(decision.message)
 
     logger.info("follow_up agent for %s: %s", public_id, decision.action)
     return decision
