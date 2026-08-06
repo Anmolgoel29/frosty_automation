@@ -84,12 +84,12 @@ TEMPLATES = [
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": str(ROOT_DIR / "data" / "db.sqlite3"),
-        # The daemon and the admin web server write to the same SQLite file
-        # concurrently (both run in the Docker container). A busy timeout lets
-        # a writer wait for the lock instead of erroring with "database is locked".
-        "OPTIONS": {"timeout": 30},
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("POSTGRES_DB", "openoutreach"),
+        "USER": os.environ.get("POSTGRES_USER", "openoutreach"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "openoutreach"),
+        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
 }
 

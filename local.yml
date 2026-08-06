@@ -8,6 +8,21 @@
 #   Browser (native VNC client) : localhost:5900  (no password)
 
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-openoutreach}
+      - POSTGRES_USER=${POSTGRES_USER:-openoutreach}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-openoutreach}
+    volumes:
+      - openoutreach_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-openoutreach} -d ${POSTGRES_DB:-openoutreach}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   app:
     build:
       context: .
@@ -17,6 +32,9 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       - ENABLE_VNC=true
       - HOST_UID=${HOST_UID:-1000}
@@ -26,9 +44,17 @@ services:
       - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-admin}
       - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-admin}
       - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-openoutreach}
+      - POSTGRES_USER=${POSTGRES_USER:-openoutreach}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-openoutreach}
     volumes:
       - .:/app
     ports:
       - "8000:8000"   # Django admin panel
       - "6080:6080"   # noVNC (browser-based browser viewer)
       - "5900:5900"   # native VNC client
+
+volumes:
+  openoutreach_pgdata:

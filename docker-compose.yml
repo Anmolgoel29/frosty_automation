@@ -5,8 +5,9 @@
 #   Browser view — noVNC (web)  : http://localhost:6080/vnc.html
 #   Browser view — native VNC   : vnc://localhost:5900           (no password)
 #
-# Data (db.sqlite3, cookies, model blobs, config.json) persists in the named
-# `openoutreach_data` volume mounted at /app/data.
+# Structured data (leads, deals, campaigns, model blobs) lives in Postgres, in the
+# named `openoutreach_pgdata` volume. Cookies, config.json, and the fastembed cache
+# persist in the named `openoutreach_data` volume mounted at /app/data.
 #
 # For live-code development instead, use local.yml (bind-mounts the repo).
 #
@@ -14,6 +15,21 @@
 #   docker compose logs -f
 
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-openoutreach}
+      - POSTGRES_USER=${POSTGRES_USER:-openoutreach}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-openoutreach}
+    volumes:
+      - openoutreach_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-openoutreach} -d ${POSTGRES_DB:-openoutreach}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   app:
     build:
       context: .
@@ -24,6 +40,9 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       - ENABLE_VNC=true
       # Auto-created on first boot so you can log into the admin panel.
@@ -34,6 +53,11 @@ services:
       # Reaching the admin panel from a remote host/IP? List its origin(s) here,
       # e.g. CSRF_TRUSTED_ORIGINS=http://1.2.3.4:8000,https://crm.example.com
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-*}
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-openoutreach}
+      - POSTGRES_USER=${POSTGRES_USER:-openoutreach}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-openoutreach}
     volumes:
       - openoutreach_data:/app/data
     ports:
@@ -43,3 +67,4 @@ services:
 
 volumes:
   openoutreach_data:
+  openoutreach_pgdata:

@@ -215,9 +215,11 @@ EOF
 ## 📁 Data & Configuration
 
 ### Data Location (Host)
+
+Leads, deals, and configs live in Postgres (the `openoutreach_pgdata` volume — see Docker
+Compose setup). `/home/outreach/openoutreach_data/` holds everything else:
 ```
 /home/outreach/openoutreach_data/
-├── db.sqlite3           # Main database
 ├── config.json          # Configuration
 └── other files...
 ```
@@ -297,11 +299,12 @@ docker exec openoutreach ls -la /app/data/config.json
 ### Database Issues
 
 ```bash
-# Reset database (WARNING: deletes all data)
-rm /home/outreach/openoutreach_data/db.sqlite3
+# Reset database only (WARNING: deletes leads/deals/config; keeps cookies/config.json)
+docker compose down
+docker volume rm openoutreach_openoutreach_pgdata
 
-# Restart container (will recreate DB)
-docker restart openoutreach
+# Restart (will recreate DB + run migrations)
+docker compose up -d
 
 # Recreate superuser
 docker exec -it openoutreach python manage.py createsuperuser

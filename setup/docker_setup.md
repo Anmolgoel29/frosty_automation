@@ -218,7 +218,7 @@ Seed LinkedIn URLs (optional): (Leave empty or paste profile URLs)
 Once onboarding completes, the daemon starts automatically and:
 
 1. **Verifies credentials** — Tests LinkedIn login
-2. **Initializes database** — Sets up SQLite with CRM schema
+2. **Initializes database** — Runs Postgres migrations for the CRM schema
 3. **Downloads ML model** — Fetches FastEmbed for embeddings
 4. **Starts automation** — Begins discovering and qualifying leads
 

@@ -19,13 +19,14 @@ Startup sequence:
 
 Remote freemium kit import is disabled; the daemon only uses locally configured campaigns.
 
-Docker `start` script (`compose/linkedin/start`) sets up Xvfb + VNC, runs `migrate` and an optional `createsuperuser --noinput` (from `DJANGO_SUPERUSER_*` env), then supervises two long-lived processes: the Django admin web server (`runserver 0.0.0.0:8000 --noreload --insecure`, always up) and `rundaemon` (restarts on exit). Both write to the same SQLite file, so a 30s busy timeout is set on the connection.
+Docker `start` script (`compose/linkedin/start`) sets up Xvfb + VNC, runs `migrate` and an optional `createsuperuser --noinput` (from `DJANGO_SUPERUSER_*` env), then supervises two long-lived processes: the Django admin web server (`runserver 0.0.0.0:8000 --noreload --insecure`, always up) and `rundaemon` (restarts on exit). Both connect to the same Postgres `db` service, which handles their concurrent writes natively (no busy-timeout workaround, unlike the old SQLite setup).
 
 ### Other management commands
 
 - `onboard` — standalone onboarding (interactive or `--non-interactive` with `--config-file` / individual flags).
 - `setup_crm` — idempotent CRM bootstrap (default Site).
 - `add_seeds` — add seed LinkedIn profile URLs to a campaign.
+- `migrate_sqlite_to_postgres` — one-time upgrade helper for installs that still have data in `data/db.sqlite3`. Registers the old SQLite file as a temporary second connection alias, runs `migrate` against Postgres, then `dumpdata`/`loaddata`s the old data across with `--natural-foreign --natural-primary` (so FKs into contenttypes/permissions resolve against Postgres's own rows instead of colliding on raw ids, and the `auth.User` migrated in matches the auto-created superuser by username instead of erroring on a duplicate pk). Keeps the exported JSON in `data/` as a backup.
 
 ## Onboarding (`onboarding.py`)
 
@@ -135,7 +136,7 @@ Three apps in `INSTALLED_APPS`:
 - **`management/setup_crm.py`** — Idempotent CRM bootstrap (Site creation).
 - **`admin.py`** — Django Admin: SiteConfig (hidden from nav via `has_module_permission=False`, still reachable by direct URL), Campaign, LinkedInProfile, SearchKeyword, ActionLog, Task, ChatMessage. All `ModelAdmin` subclasses here (and in `crm/admin.py`) inherit from `unfold.admin.ModelAdmin`, not the stock `django.contrib.admin.ModelAdmin` — Unfold's changelist template renders the bulk-actions "Run" button via an Alpine.js `x-show="action"` binding tied to `x-model="action"` on the `<select>`, which only Unfold's own `ActionForm`/widget emits. A `ModelAdmin` registered with the stock base class still renders inside Unfold's (globally-templated) changelist page, but gets the stock `<select>` with no `x-model`, so Alpine's `action` var never updates and the "Run" button never reveals — it looks like a CSS bug ("the button is invisible") but is actually a missing form/widget wiring. `TaskAdmin` has a "Run now" bulk action (`run_now`) that sets `scheduled_at = timezone.now()` on selected PENDING tasks (no-op on non-pending selections, reported via a warning message) — the standard way to make a future-dated task (e.g. a `follow_up` waiting out its backoff) run immediately, such as when a lead has just replied and you want the AI to respond without waiting for the scheduled check.
 - **`dashboard.py`** — `dashboard_callback(request, context)`, wired via `UNFOLD["DASHBOARD_CALLBACK"]`. Injects outreach stats (messages sent, replies received, connection requests sent/accepted) into the admin index page context; rendered by `templates/admin/index.html` (project-level override, takes precedence over unfold's/django's own `admin/index.html` via `TEMPLATES[0]["DIRS"]`).
-- **`django_settings.py`** — Django settings (SQLite at `data/db.sqlite3`). Apps: crm, chat, linkedin. `TEMPLATES[0]["DIRS"]` includes project-level `templates/` (for the admin dashboard override). `UNFOLD` dict configures the admin theme's dashboard callback.
+- **`django_settings.py`** — Django settings (Postgres, configured via `POSTGRES_DB`/`POSTGRES_USER`/`POSTGRES_PASSWORD`/`POSTGRES_HOST`/`POSTGRES_PORT` env vars — defaults match the official `postgres` image's own vars, `HOST` defaults to `localhost` for non-Docker local dev). Apps: crm, chat, linkedin. `TEMPLATES[0]["DIRS"]` includes project-level `templates/` (for the admin dashboard override). `UNFOLD` dict configures the admin theme's dashboard callback.
 
 
 ## Configuration
@@ -150,6 +151,8 @@ Three apps in `INSTALLED_APPS`:
 
 `BUILD_ENV` arg selects requirements. Dockerfile at `compose/linkedin/Dockerfile` (two-stage: deps build → runtime; installs Playwright chromium + a VNC stack: Xvfb, x11vnc, websockify, noVNC). One container exposes three ports: **8000** (Django admin panel, always up), **6080** (noVNC in-browser browser view), **5900** (native VNC client). `local.yml` publishes all three and auto-creates a superuser via `DJANGO_SUPERUSER_*` env. See `compose/linkedin/start` for the process supervision.
 
+Both `docker-compose.yml` and `local.yml` also define a `db` service (`postgres:16-alpine`, data in the `openoutreach_pgdata` named volume) with a `pg_isready` healthcheck; `app` declares `depends_on: db: condition: service_healthy`, so `start`'s `migrate --no-input` only runs once Postgres is actually accepting connections — no wait-loop needed in the start script itself.
+
 ## CI/CD
 
 - `tests.yml` — pytest in Docker on push to `master` and PRs.
@@ -159,5 +162,5 @@ Three apps in `INSTALLED_APPS`:
 
 `requirements/` files. DjangoCRM's `mysqlclient` excluded via `--no-deps`. `uv pip install` for fast installs.
 
-Core: `playwright`, `playwright-stealth`, `Django`, `django-crm-admin`, `pandas`, `pydantic-ai-slim` (with `openai`/`anthropic`/`google`/`groq`/`mistral`/`cohere`/`bedrock` extras), `jinja2`, `pydantic`, `jsonpath-ng`, `tendo`, `termcolor`, `tenacity`
+Core: `playwright`, `playwright-stealth`, `Django`, `psycopg[binary]` (Postgres driver), `django-crm-admin`, `pandas`, `pydantic-ai-slim` (with `openai`/`anthropic`/`google`/`groq`/`mistral`/`cohere`/`bedrock` extras), `jinja2`, `pydantic`, `jsonpath-ng`, `tendo`, `termcolor`, `tenacity`
 ML: `scikit-learn`, `numpy`, `fastembed`, `joblib`

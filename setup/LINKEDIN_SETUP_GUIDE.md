@@ -361,11 +361,11 @@ LinkedIn Settings → Legal
 
 ### Data Locations
 
-All data stays on your `~/.openoutreach/data`:
+Leads, deals, and configs live in Postgres (a separate `db` service/volume — see Docker
+Compose setup). `~/.openoutreach/data` holds everything else:
 
 ```
 ~/.openoutreach/data/
-├── db.sqlite3              # Main database (leads, deals, configs)
 ├── logs/                   # Application logs
 └── playwright/
     └── cookies             # LinkedIn saved session (encrypted)
@@ -375,6 +375,7 @@ All data stays on your `~/.openoutreach/data`:
 
 ```bash
 cp -r ~/.openoutreach/data ~/.backup-openoutreach-$(date +%Y%m%d)
+docker compose exec db pg_dump -U openoutreach openoutreach > ~/.backup-openoutreach-$(date +%Y%m%d)/db.sql
 ```
 
 ---

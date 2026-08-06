@@ -98,7 +98,7 @@ openoutreach down                                    # download your updated DB,
 | Docker + VPN setup | You manage | We manage |
 | Setup time | 30-60 min | ~1 min |
 
-**Your data stays yours.** `openoutreach up` uploads your local `db.sqlite3` to a dedicated droplet; `openoutreach down` brings it back with every new lead, message, and campaign update before the server is destroyed. Switch between self-hosted and Cloud anytime without losing anything.
+**Your data stays yours.** `openoutreach up` uploads your local database to a dedicated droplet; `openoutreach down` brings it back with every new lead, message, and campaign update before the server is destroyed. Switch between self-hosted and Cloud anytime without losing anything.
 
 No feature gating, no lock-in. Cloud is a convenience layer — the code running on the server is the exact same open-source image you run locally.
 
@@ -118,13 +118,14 @@ For contributors or if you prefer running directly on your machine.
 
 - [Git](https://git-scm.com/)
 - [Python](https://www.python.org/downloads/) (3.12+)
+- [Docker](https://docs.docker.com/get-docker/) (used by `make setup` to run a local Postgres container — the CRM database)
 
 ### 1. Clone & Set Up
 ```bash
 git clone https://github.com/eracle/OpenOutreach.git
 cd OpenOutreach
 
-# Install deps, Playwright browsers, run migrations, and bootstrap CRM
+# Install deps, start Postgres, run migrations, and bootstrap CRM
 make setup
 ```
 
@@ -207,7 +208,7 @@ Configure rate limits and behavior via Django Admin (LinkedInProfile + Campaign 
 │   ├── conf.py                      # Configuration loading (.env + defaults)
 │   ├── daemon.py                    # Task queue worker loop
 │   ├── db/                          # CRM-backed CRUD (leads, deals, enrichment, chat)
-│   ├── django_settings.py           # Django/CRM settings (SQLite at db.sqlite3)
+│   ├── django_settings.py           # Django/CRM settings (Postgres, configured via POSTGRES_* env vars)
 │   ├── management/setup_crm.py      # Idempotent CRM bootstrap (Dept, Stages, Closing Reasons)
 │   ├── ml/                          # Bayesian qualifier (GPR), embeddings, profile text
 │   ├── models.py                    # Django models (Campaign, LinkedInProfile, Task, etc.)

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help logs test docker-test stop build up up-view install setup run admin view
+.PHONY: help logs test docker-test stop build up up-view install setup run admin view postgres
 
 help:
 	@perl -nle'print $& if m{^[a-zA-Z_-]+:.*?## .*$$}' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
@@ -8,7 +8,16 @@ install: ## install all Python dependencies (local dev)
 	pip install uv 2>/dev/null || true
 	uv pip install -r requirements/local.txt
 
-setup: install ## install deps + Playwright browsers + migrate + bootstrap CRM
+postgres: ## start a local Postgres container for non-Docker local dev
+	docker start openoutreach-postgres 2>/dev/null || docker run -d --name openoutreach-postgres \
+	  -e POSTGRES_DB=$${POSTGRES_DB:-openoutreach} \
+	  -e POSTGRES_USER=$${POSTGRES_USER:-openoutreach} \
+	  -e POSTGRES_PASSWORD=$${POSTGRES_PASSWORD:-openoutreach} \
+	  -p 5432:5432 \
+	  -v openoutreach_pgdata:/var/lib/postgresql/data \
+	  postgres:16-alpine
+
+setup: install postgres ## install deps + Playwright browsers + start Postgres + migrate + bootstrap CRM
 	playwright install --with-deps chromium
 	python manage.py migrate --no-input
 	python manage.py setup_crm
