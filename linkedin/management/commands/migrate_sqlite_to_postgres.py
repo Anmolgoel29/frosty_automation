@@ -35,9 +35,23 @@ class Command(BaseCommand):
             self.stderr.write(f"No SQLite database found at {sqlite_path}.")
             sys.exit(1)
 
+        # Aliases declared in settings.DATABASES get defaulted (TIME_ZONE, OPTIONS,
+        # CONN_MAX_AGE, ...) by Django at startup. This one is added at runtime, so
+        # it needs the full set spelled out or backend init raises a bare KeyError.
         connections.databases["sqlite_legacy"] = {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": str(sqlite_path),
+            "USER": "",
+            "PASSWORD": "",
+            "HOST": "",
+            "PORT": "",
+            "OPTIONS": {},
+            "TIME_ZONE": None,
+            "CONN_MAX_AGE": 0,
+            "CONN_HEALTH_CHECKS": False,
+            "AUTOCOMMIT": True,
+            "ATOMIC_REQUESTS": False,
+            "TEST": {},
         }
 
         self.stdout.write("Applying migrations to Postgres...")
