@@ -42,11 +42,16 @@ def django_db_config(url: str | None = None) -> dict:
         "PASSWORD": unquote(parts.password or ""),
         "HOST": unquote(parts.hostname or ""),
         "PORT": str(parts.port or ""),
+        # Always present: the postgres backend reads settings_dict["OPTIONS"]
+        # unconditionally, and Django only fills defaults for the DATABASES it
+        # sets up itself — a dict injected straight into connections.databases
+        # (e.g. the migration helpers' verification alias) must carry it already.
+        "OPTIONS": {},
     }
     # psycopg understands `sslmode` natively; pass it straight through.
     sslmode = parse_qs(parts.query).get("sslmode", [None])[0]
     if sslmode:
-        config["OPTIONS"] = {"sslmode": sslmode}
+        config["OPTIONS"]["sslmode"] = sslmode
     return config
 
 
