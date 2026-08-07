@@ -100,7 +100,21 @@ class Command(BaseCommand):
         ContentType/Permission are skipped: they're regenerated per the
         installed-app set on the target, so their counts legitimately differ.
         """
-        connections.databases[_TARGET_ALIAS] = django_db_config(target_url)
+        # Django applies its per-alias defaults (OPTIONS, TIME_ZONE, CONN_MAX_AGE,
+        # ...) only in ConnectionHandler.configure_settings, which runs once and is
+        # cached — an alias injected into connections.databases afterward never gets
+        # them, and the backend reads those keys unconditionally. So spell out a
+        # fully-defaulted dict here (same shape as migrate_sqlite_to_postgres).
+        connections.databases[_TARGET_ALIAS] = {
+            **django_db_config(target_url),
+            "OPTIONS": django_db_config(target_url).get("OPTIONS", {}),
+            "TIME_ZONE": None,
+            "CONN_MAX_AGE": 0,
+            "CONN_HEALTH_CHECKS": False,
+            "AUTOCOMMIT": True,
+            "ATOMIC_REQUESTS": False,
+            "TEST": {},
+        }
 
         self.stdout.write("\nRow-count verification (local -> remote):")
         regenerated = {ContentType, Permission}
