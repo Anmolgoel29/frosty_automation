@@ -33,16 +33,31 @@ INSTALLED_APPS = [
     "linkedin",
 ]
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "openoutreach"),
-        "USER": os.environ.get("POSTGRES_USER", "openoutreach"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "openoutreach"),
-        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+# The `migrate_sqlite_to_postgres` upgrade helper points `default` at a legacy
+# SQLite file via this env var so it can bring that file up to the current schema
+# in isolation. The historical data migrations query via `Model.objects` (no
+# `.using(...)`), so they only run against whatever DB is `default` — making the
+# SQLite the default is what lets them replay correctly. Unset for every normal
+# run (daemon, admin, tests), which always use Postgres.
+_LEGACY_SQLITE = os.environ.get("OPENOUTREACH_LEGACY_SQLITE")
+if _LEGACY_SQLITE:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": _LEGACY_SQLITE,
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB", "openoutreach"),
+            "USER": os.environ.get("POSTGRES_USER", "openoutreach"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "openoutreach"),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        }
+    }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

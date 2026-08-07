@@ -1,7 +1,13 @@
+import os
+import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from django.apps import apps
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import connections
@@ -17,12 +23,16 @@ from linkedin.conf import ROOT_DIR
 # and naming an uninstalled app in --exclude raises "Unknown model".)
 EXCLUDED_APPS = ["contenttypes", "auth.permission"]
 
+_LEGACY_ALIAS = "sqlite_legacy"
+
 
 class Command(BaseCommand):
     help = (
         "One-time upgrade helper: copy data from an existing data/db.sqlite3 file "
         "into the Postgres database configured in settings. Run once after "
-        "upgrading an existing self-hosted install from SQLite to Postgres."
+        "upgrading an existing self-hosted install from SQLite to Postgres. "
+        "Safe to run against a legacy DB that is behind on migrations — it is "
+        "brought up to the current schema first (on a throwaway copy)."
     )
 
     def add_arguments(self, parser):
@@ -38,44 +48,94 @@ class Command(BaseCommand):
             self.stderr.write(f"No SQLite database found at {sqlite_path}.")
             sys.exit(1)
 
-        # Aliases declared in settings.DATABASES get defaulted (TIME_ZONE, OPTIONS,
-        # CONN_MAX_AGE, ...) by Django at startup. This one is added at runtime, so
-        # it needs the full set spelled out or backend init raises a bare KeyError.
-        connections.databases["sqlite_legacy"] = {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": str(sqlite_path),
-            "USER": "",
-            "PASSWORD": "",
-            "HOST": "",
-            "PORT": "",
-            "OPTIONS": {},
-            "TIME_ZONE": None,
-            "CONN_MAX_AGE": 0,
-            "CONN_HEALTH_CHECKS": False,
-            "AUTOCOMMIT": True,
-            "ATOMIC_REQUESTS": False,
-            "TEST": {},
-        }
+        # Work on a throwaway copy: bringing the legacy DB up to the current schema
+        # mutates it, and we never want to touch the user's original file.
+        work_copy = sqlite_path.with_name(
+            f"_migrate_work_{datetime.now(timezone.utc):%Y%m%d%H%M%S}.sqlite3"
+        )
+        shutil.copy2(sqlite_path, work_copy)
+        manage_py = str(ROOT_DIR / "manage.py")
 
-        self.stdout.write("Applying migrations to Postgres...")
-        call_command("migrate", verbosity=0)
-
+        # Phases 1 & 2 run in a subprocess with the SQLite copy as `default`
+        # (OPENOUTREACH_LEGACY_SQLITE, see django_settings.py). The historical data
+        # migrations query via `Model.objects` with no `.using(...)`, so they only
+        # replay correctly when the DB they target is `default` — which is exactly
+        # what this env override arranges. The parent process keeps Postgres as
+        # default for phases 3 & 4.
+        legacy_env = {**os.environ, "OPENOUTREACH_LEGACY_SQLITE": str(work_copy)}
         export_path = (
             ROOT_DIR / "data" / f"sqlite_export_{datetime.now(timezone.utc):%Y%m%d%H%M%S}.json"
         )
-        self.stdout.write(f"Exporting data from {sqlite_path}...")
-        call_command(
-            "dumpdata",
-            natural_foreign=True,
-            natural_primary=True,
-            exclude=EXCLUDED_APPS,
-            database="sqlite_legacy",
-            output=str(export_path),
-        )
 
-        self.stdout.write("Loading data into Postgres...")
-        call_command("loaddata", str(export_path), database="default")
+        try:
+            self.stdout.write("1/4 Bringing the legacy SQLite copy up to the current schema...")
+            subprocess.run(
+                [sys.executable, manage_py, "migrate", "--no-input", "-v", "0"],
+                cwd=ROOT_DIR, env=legacy_env, check=True,
+            )
 
-        self.stdout.write(
-            self.style.SUCCESS(f"Migration complete. Export kept at {export_path} as a backup.")
-        )
+            self.stdout.write(f"2/4 Exporting all data from {sqlite_path}...")
+            subprocess.run(
+                [
+                    sys.executable, manage_py, "dumpdata",
+                    "--natural-foreign", "--natural-primary",
+                    *[arg for app in EXCLUDED_APPS for arg in ("--exclude", app)],
+                    "-o", str(export_path),
+                ],
+                cwd=ROOT_DIR, env=legacy_env, check=True,
+            )
+
+            self.stdout.write("3/4 Applying migrations to Postgres...")
+            call_command("migrate", verbosity=0)
+
+            self.stdout.write("4/4 Loading data into Postgres...")
+            call_command("loaddata", str(export_path), database="default")
+
+            self._verify_row_counts(work_copy)
+
+            self.stdout.write(
+                self.style.SUCCESS(f"Migration complete. Export kept at {export_path} as a backup.")
+            )
+        finally:
+            work_copy.unlink(missing_ok=True)
+
+    def _verify_row_counts(self, work_copy: Path) -> None:
+        """Compare every migrated table's row count, legacy vs Postgres.
+
+        Proves nothing was dropped. ContentType/Permission are skipped: they're
+        regenerated per the installed-app set, so their counts legitimately differ.
+        """
+        connections.databases[_LEGACY_ALIAS] = {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(work_copy),
+            "USER": "", "PASSWORD": "", "HOST": "", "PORT": "",
+            "OPTIONS": {}, "TIME_ZONE": None, "CONN_MAX_AGE": 0,
+            "CONN_HEALTH_CHECKS": False, "AUTOCOMMIT": True,
+            "ATOMIC_REQUESTS": False, "TEST": {},
+        }
+
+        self.stdout.write("\nRow-count verification (legacy SQLite -> Postgres):")
+        regenerated = {ContentType, Permission}
+        mismatches = 0
+        for model in sorted(apps.get_models(include_auto_created=True), key=lambda m: m._meta.label):
+            if model in regenerated:
+                continue
+            try:
+                src = model.objects.using(_LEGACY_ALIAS).count()
+            except Exception:
+                continue  # table absent from the legacy DB — nothing to compare
+            dst = model.objects.using("default").count()
+            flag = "" if src == dst else "  <-- MISMATCH"
+            if src != dst:
+                mismatches += 1
+            self.stdout.write(f"  {model._meta.label:<32} {src:>8} -> {dst:>8}{flag}")
+
+        if mismatches:
+            self.stderr.write(
+                self.style.ERROR(
+                    f"{mismatches} table(s) did not match. Inspect the rows above — the JSON "
+                    "export is kept as a backup so you can retry.",
+                ),
+            )
+            sys.exit(1)
+        self.stdout.write(self.style.SUCCESS("All data tables match — nothing left behind."))
