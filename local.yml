@@ -44,11 +44,9 @@ services:
       - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-admin}
       - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-admin}
       - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-admin@example.com}
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB:-openoutreach}
-      - POSTGRES_USER=${POSTGRES_USER:-openoutreach}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-openoutreach}
+      # The one knob for the database. Defaults to the bundled `db` service;
+      # point it at a hosted Postgres (Supabase/Neon/RDS) to use that instead.
+      - DATABASE_URL=${DATABASE_URL:-postgresql://openoutreach:openoutreach@db:5432/openoutreach}
     volumes:
       - .:/app
     ports:

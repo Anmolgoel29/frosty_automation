@@ -53,11 +53,10 @@ services:
       # Reaching the admin panel from a remote host/IP? List its origin(s) here,
       # e.g. CSRF_TRUSTED_ORIGINS=http://1.2.3.4:8000,https://crm.example.com
       - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-*}
-      - POSTGRES_HOST=db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=${POSTGRES_DB:-openoutreach}
-      - POSTGRES_USER=${POSTGRES_USER:-openoutreach}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-openoutreach}
+      # The one knob for the database. Defaults to the bundled `db` service;
+      # point it at a hosted Postgres (Supabase/Neon/RDS) to use that instead —
+      # e.g. DATABASE_URL=postgresql://postgres:pw@db.xxx.supabase.co:5432/postgres?sslmode=require
+      - DATABASE_URL=${DATABASE_URL:-postgresql://openoutreach:openoutreach@db:5432/openoutreach}
     volumes:
       - openoutreach_data:/app/data
     ports:

@@ -3,23 +3,17 @@
 
 Deliberately independent of Django's settings module for DB access — this
 process talks to Postgres directly via its own async SQLAlchemy engine,
-reading the same POSTGRES_* env vars Django's settings already use so both
-processes point at the identical database without importing Django at all
+reading the same `DATABASE_URL` (see `db_url.py`) Django's settings resolve so
+both processes point at the identical database without importing Django at all
 for connectivity. `DJANGO_SECRET_KEY` is reused (not a new secret to manage)
 for session-cookie and CSRF-token signing.
 """
 import os
 
-POSTGRES_DB = os.environ.get("POSTGRES_DB", "openoutreach")
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "openoutreach")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "openoutreach")
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = os.environ.get("POSTGRES_PORT", "5432")
+from db_url import sqlalchemy_async_url
 
-DATABASE_URL = (
-    f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}"
-    f"@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-)
+# (url, connect_args) — connect_args carries e.g. asyncpg's ssl arg for Supabase.
+DATABASE_URL, DATABASE_CONNECT_ARGS = sqlalchemy_async_url()
 
 SECRET_KEY = os.environ.get(
     "DJANGO_SECRET_KEY",

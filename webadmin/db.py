@@ -3,9 +3,9 @@ from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from webadmin.config import DATABASE_URL
+from webadmin.config import DATABASE_CONNECT_ARGS, DATABASE_URL
 
-engine = create_async_engine(DATABASE_URL)
+engine = create_async_engine(DATABASE_URL, connect_args=DATABASE_CONNECT_ARGS)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 

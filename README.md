@@ -208,7 +208,7 @@ Configure rate limits and behavior via the admin panel (LinkedInProfile + Campai
 │   ├── conf.py                      # Configuration loading (.env + defaults)
 │   ├── daemon.py                    # Task queue worker loop
 │   ├── db/                          # CRM-backed CRUD (leads, deals, enrichment, chat)
-│   ├── django_settings.py           # Django/CRM settings (Postgres, configured via POSTGRES_* env vars)
+│   ├── django_settings.py           # Django/CRM settings (Postgres, configured via DATABASE_URL — see db_url.py)
 │   ├── management/setup_crm.py      # Idempotent CRM bootstrap (Dept, Stages, Closing Reasons)
 │   ├── ml/                          # Bayesian qualifier (GPR), embeddings, profile text
 │   ├── models.py                    # Django models (Campaign, LinkedInProfile, Task, etc.)

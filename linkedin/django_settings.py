@@ -48,16 +48,9 @@ if _LEGACY_SQLITE:
         }
     }
 else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("POSTGRES_DB", "openoutreach"),
-            "USER": os.environ.get("POSTGRES_USER", "openoutreach"),
-            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "openoutreach"),
-            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
-        }
-    }
+    from db_url import django_db_config
+
+    DATABASES = {"default": django_db_config()}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

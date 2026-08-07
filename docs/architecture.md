@@ -15,7 +15,7 @@ The system automates LinkedIn outreach through a daemon that schedules actions c
 
 ## Core Data Model
 
-The system uses Django with a Postgres database (configured via `POSTGRES_*` env vars; see `linkedin/django_settings.py`). The key models are:
+The system uses Django with a Postgres database (configured via a single `DATABASE_URL`, with `POSTGRES_*` fallbacks; see `db_url.py` and `linkedin/django_settings.py`). The key models are:
 
 - **Lead** (`crm/models/lead.py`) — One per LinkedIn profile URL. Stores `first_name`, `last_name`, `company_name`, `linkedin_url` (LinkedIn URL, unique), `description` (full parsed profile JSON), `embedding` (BinaryField storing 384-dim fastembed vector as bytes, with `embedding_array` numpy property accessor). `disqualified` (bool) marks permanent account-level exclusion (self-profile, unreachable profiles). `creation_date`, `update_date`.
 - **Deal** (`crm/models/deal.py`) — Tracks pipeline state. One Deal per Lead per campaign (campaign-scoped via FK). `state` = CharField (ProfileState choices). `outcome` = CharField (Outcome: converted/not_interested/wrong_fit/no_budget/has_solution/bad_timing/unresponsive/unknown). `reason` = qualification reason (free text). `connect_attempts` = retry count. `backoff_hours` = check_pending backoff. `creation_date`, `update_date`.
