@@ -127,7 +127,6 @@ register(ModelAdmin(
     choices={"chat_llm_provider": LLMProvider, "task_llm_provider": LLMProvider},
     can_add=False,
     can_delete=False,
-    hidden_from_nav=True,
 ))
 
 register(ModelAdmin(
