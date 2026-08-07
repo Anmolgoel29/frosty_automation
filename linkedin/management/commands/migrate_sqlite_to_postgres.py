@@ -12,7 +12,10 @@ from linkedin.conf import ROOT_DIR
 # with (or shadow) the target DB's own rows. --natural-foreign still lets any FK
 # pointing at them (e.g. chat.ChatMessage's GenericForeignKey content_type, or
 # auth.User FKs) resolve correctly against Postgres's own copies.
-EXCLUDED_APPS = ["contenttypes", "auth.permission", "sessions.session", "admin.logentry"]
+# (The legacy SQLite's session/admin-log/site tables aren't listed here: those
+# contrib apps are no longer installed, so dumpdata never exports them anyway —
+# and naming an uninstalled app in --exclude raises "Unknown model".)
+EXCLUDED_APPS = ["contenttypes", "auth.permission"]
 
 
 class Command(BaseCommand):
