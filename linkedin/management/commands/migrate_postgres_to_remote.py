@@ -1,14 +1,23 @@
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from django.apps import apps
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core import serializers
 from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connections
+from django.core.management.color import no_style
+from django.db import (
+    DatabaseError,
+    IntegrityError,
+    connections,
+    router,
+    transaction,
+)
 
 from db_url import django_db_config, get_database_url
 from linkedin.conf import ROOT_DIR
@@ -19,7 +28,14 @@ from linkedin.conf import ROOT_DIR
 # GenericForeignKey content_type, auth.User FKs) resolve against the target copies.
 EXCLUDED_APPS = ["contenttypes", "auth.permission"]
 
+# These are regenerated on the target by `migrate`; they are excluded from the
+# dump and skipped in the row-count verification (their counts legitimately differ).
+_REGENERATED = {ContentType, Permission}
+
 _TARGET_ALIAS = "postgres_target"
+
+# How often the streaming loader prints a global progress heartbeat, in seconds.
+_PROGRESS_INTERVAL = 2.0
 
 
 class Command(BaseCommand):
@@ -27,9 +43,10 @@ class Command(BaseCommand):
         "Copy all data from the current (local) Postgres into a remote Postgres "
         "such as Supabase / Neon / RDS. Source is the ambient DATABASE_URL; the "
         "target is given by --target-url (or the TARGET_DATABASE_URL env var). "
-        "The target's schema is migrated first, then data is loaded and row counts "
-        "are verified. The target should be empty (fresh project) — its own rows "
-        "for tables being loaded would otherwise collide on primary key."
+        "The target's schema is migrated first, then data is streamed in with "
+        "live per-model progress, and finally row counts are verified. The target "
+        "should be empty (fresh project) — its own rows for tables being loaded "
+        "would otherwise collide on primary key."
     )
 
     def add_arguments(self, parser):
@@ -60,54 +77,59 @@ class Command(BaseCommand):
         )
         export_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Phases 2 & 3 run in a subprocess with the target as `default`
-        # (via DATABASE_URL). migrate's historical data migrations and loaddata
-        # both operate on `default` with no `.using(...)`, so the target has to be
-        # the default there. The parent process keeps the source as default for
-        # the dump (phase 1) and the source side of verification (phase 4).
+        # The migrate step (phase 2) runs in a subprocess with the target as
+        # `default` (via DATABASE_URL): its historical data migrations query via
+        # `Model.objects` with no `.using(...)`, so they only replay against the
+        # default DB. The load (phase 3) and verification (phase 4) run in-process
+        # against an explicit target connection alias — that lets the loader stream
+        # objects with `save(using=...)` and report progress instead of shelling
+        # out to the opaque `loaddata` command. The parent keeps the source as
+        # `default` throughout (used for the dump and the source side of verify).
         target_env = {**os.environ, "DATABASE_URL": target_url}
         # Drop the POSTGRES_* fallbacks so a stray one can't override DATABASE_URL
         # in the child (get_database_url prefers DATABASE_URL, but be explicit).
         for var in ("POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST", "POSTGRES_PORT"):
             target_env.pop(var, None)
 
-        self.stdout.write(f"Source: {_redact(source_url)}")
-        self.stdout.write(f"Target: {_redact(target_url)}")
+        self._register_target_alias(target_url)
 
-        self.stdout.write("1/4 Exporting all data from the local Postgres...")
+        self._log(f"Source: {_redact(source_url)}")
+        self._log(f"Target: {_redact(target_url)}")
+
+        self._log("1/4 Exporting all data from the local Postgres...")
         call_command(
             "dumpdata",
             "--natural-foreign", "--natural-primary",
             *[arg for app in EXCLUDED_APPS for arg in ("--exclude", app)],
             "-o", str(export_path),
         )
+        self._log(f"  wrote {_human_size(export_path.stat().st_size)} to {export_path.name}")
 
-        self.stdout.write("2/4 Applying migrations to the remote Postgres...")
+        self._log("2/4 Applying migrations to the remote Postgres...")
         _run(manage_py, ["migrate", "--no-input", "-v", "0"], target_env)
 
-        self.stdout.write("3/4 Loading data into the remote Postgres...")
-        _run(manage_py, ["loaddata", str(export_path)], target_env)
+        self._log("3/4 Loading data into the remote Postgres...")
+        self._load_with_progress(export_path)
 
-        self._verify_row_counts(target_url)
+        self._verify_row_counts()
 
-        self.stdout.write(
+        self._log(
             self.style.SUCCESS(f"Migration complete. Export kept at {export_path} as a backup.")
         )
 
-    def _verify_row_counts(self, target_url: str) -> None:
-        """Compare every migrated table's row count, source vs target.
+    def _register_target_alias(self, target_url: str) -> None:
+        """Add the remote as a usable connection alias.
 
-        ContentType/Permission are skipped: they're regenerated per the
-        installed-app set on the target, so their counts legitimately differ.
+        Django applies its per-alias defaults (OPTIONS, TIME_ZONE, CONN_MAX_AGE,
+        ...) only in ConnectionHandler.configure_settings, which runs once and is
+        cached — an alias injected into connections.databases afterward never gets
+        them, and the backend reads those keys unconditionally. So spell out a
+        fully-defaulted dict here (same shape as migrate_sqlite_to_postgres).
         """
-        # Django applies its per-alias defaults (OPTIONS, TIME_ZONE, CONN_MAX_AGE,
-        # ...) only in ConnectionHandler.configure_settings, which runs once and is
-        # cached — an alias injected into connections.databases afterward never gets
-        # them, and the backend reads those keys unconditionally. So spell out a
-        # fully-defaulted dict here (same shape as migrate_sqlite_to_postgres).
+        config = django_db_config(target_url)
         connections.databases[_TARGET_ALIAS] = {
-            **django_db_config(target_url),
-            "OPTIONS": django_db_config(target_url).get("OPTIONS", {}),
+            **config,
+            "OPTIONS": config.get("OPTIONS", {}),
             "TIME_ZONE": None,
             "CONN_MAX_AGE": 0,
             "CONN_HEALTH_CHECKS": False,
@@ -116,18 +138,121 @@ class Command(BaseCommand):
             "TEST": {},
         }
 
-        self.stdout.write("\nRow-count verification (local -> remote):")
-        regenerated = {ContentType, Permission}
+    def _load_with_progress(self, export_path: Path) -> None:
+        """Stream the JSON export into the target alias, logging live progress.
+
+        A faithful port of Django's loaddata inner loop (constraint checks
+        disabled during the insert, deferred natural-key forward references saved
+        at the end, target constraints re-checked, PK sequences reset) — but it
+        saves each object with `save(using=target)` in-process so it can report
+        which model is loading and how far along it is, instead of the opaque
+        "Installed N object(s)" that loaddata prints only when it finishes.
+        """
+        connection = connections[_TARGET_ALIAS]
+        total = sum(
+            model.objects.using("default").count()
+            for model in apps.get_models(include_auto_created=True)
+            if model not in _REGENERATED
+        )
+        self._log(f"  {total} objects to copy (one INSERT per row — slow over a remote link)")
+
+        deferred = []
+        touched_models = set()
+        per_model: dict[str, int] = {}
+        current_label = None
+        loaded = 0
+        start = time.monotonic()
+        last_beat = start
+
+        with open(export_path, "rb") as fixture:
+            with transaction.atomic(using=_TARGET_ALIAS):
+                with connection.constraint_checks_disabled():
+                    objects = serializers.deserialize(
+                        "json",
+                        fixture,
+                        using=_TARGET_ALIAS,
+                        handle_forward_references=True,
+                    )
+                    for obj in objects:
+                        model = obj.object.__class__
+                        if not router.allow_migrate_model(_TARGET_ALIAS, model):
+                            continue
+                        label = model._meta.label
+                        if label != current_label:
+                            if current_label is not None:
+                                self._log(f"  ✓ {current_label:<32} {per_model[current_label]:>8} rows")
+                            current_label = label
+                            per_model[label] = 0
+                        touched_models.add(model)
+                        try:
+                            obj.save(using=_TARGET_ALIAS)
+                        except (DatabaseError, IntegrityError, ValueError) as e:
+                            raise CommandError(
+                                f"Could not load {label}(pk={obj.object.pk}): {e}"
+                            )
+                        if obj.deferred_fields:
+                            deferred.append(obj)
+                        loaded += 1
+                        per_model[label] += 1
+
+                        now = time.monotonic()
+                        if now - last_beat >= _PROGRESS_INTERVAL:
+                            self._log(self._heartbeat(loaded, total, start, label))
+                            last_beat = now
+
+                    if current_label is not None:
+                        self._log(f"  ✓ {current_label:<32} {per_model[current_label]:>8} rows")
+                    if deferred:
+                        self._log(f"  resolving {len(deferred)} deferred natural-key reference(s)...")
+                        for obj in deferred:
+                            obj.save_deferred_fields(using=_TARGET_ALIAS)
+
+                # Still inside the transaction, but outside constraint_checks_disabled:
+                # verify nothing broke referential integrity, then fix PK sequences so
+                # future inserts on the target don't collide with the copied rows.
+                table_names = [model._meta.db_table for model in touched_models]
+                connection.check_constraints(table_names=table_names)
+                if loaded:
+                    self._reset_sequences(connection, touched_models)
+
+        elapsed = time.monotonic() - start
+        rate = loaded / elapsed if elapsed else 0
+        self._log(f"  loaded {loaded} objects in {_human_duration(elapsed)} ({rate:.0f} rows/s)")
+
+    def _heartbeat(self, loaded: int, total: int, start: float, label: str) -> str:
+        elapsed = time.monotonic() - start
+        rate = loaded / elapsed if elapsed else 0
+        pct = (loaded / total * 100) if total else 100.0
+        eta = ((total - loaded) / rate) if rate else 0
+        return (
+            f"  … {loaded}/{total} ({pct:4.0f}%)  {rate:5.0f} rows/s  "
+            f"ETA {_human_duration(eta)}  — loading {label}"
+        )
+
+    def _reset_sequences(self, connection, models) -> None:
+        sql = connection.ops.sequence_reset_sql(no_style(), list(models))
+        if sql:
+            with connection.cursor() as cursor:
+                for line in sql:
+                    cursor.execute(line)
+
+    def _verify_row_counts(self) -> None:
+        """Compare every migrated table's row count, source vs target.
+
+        ContentType/Permission are skipped: they're regenerated per the
+        installed-app set on the target, so their counts legitimately differ.
+        """
+        self._log("4/4 Verifying row counts (local -> remote):")
         mismatches = 0
         for model in sorted(apps.get_models(include_auto_created=True), key=lambda m: m._meta.label):
-            if model in regenerated:
+            if model in _REGENERATED:
                 continue
             src = model.objects.using("default").count()
             dst = model.objects.using(_TARGET_ALIAS).count()
             flag = "" if src == dst else "  <-- MISMATCH"
             if src != dst:
                 mismatches += 1
-            self.stdout.write(f"  {model._meta.label:<32} {src:>8} -> {dst:>8}{flag}")
+            self._log(f"  {model._meta.label:<32} {src:>8} -> {dst:>8}{flag}")
 
         if mismatches:
             self.stderr.write(
@@ -137,7 +262,11 @@ class Command(BaseCommand):
                 ),
             )
             sys.exit(1)
-        self.stdout.write(self.style.SUCCESS("All data tables match — nothing left behind."))
+        self._log(self.style.SUCCESS("All data tables match — nothing left behind."))
+
+    def _log(self, msg: str) -> None:
+        """Write a timestamped progress line."""
+        self.stdout.write(f"[{datetime.now():%H:%M:%S}] {msg}")
 
 
 def _run(manage_py: str, argv: list, env: dict) -> None:
@@ -161,3 +290,21 @@ def _redact(url: str) -> str:
         netloc = parts.netloc.replace(f":{parts.password}@", ":****@")
         parts = parts._replace(netloc=netloc)
     return urlunparse(parts)
+
+
+def _human_duration(seconds: float) -> str:
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m{seconds % 60:02d}s"
+    return f"{seconds // 3600}h{(seconds % 3600) // 60:02d}m"
+
+
+def _human_size(num_bytes: int) -> str:
+    size = float(num_bytes)
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            return f"{size:.0f}{unit}" if unit == "B" else f"{size:.1f}{unit}"
+        size /= 1024
+    return f"{size:.1f}GB"
