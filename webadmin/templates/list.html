@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ admin.label }} — OpenOutreach Admin{% endblock %}
+{% block content %}
+<div class="list-header">
+    <h1>{{ admin.label }}<span class="count">({{ total }})</span></h1>
+    {% if admin.can_add %}<a class="primary-button" href="/admin/{{ admin.slug }}/add">Add {{ admin.label }}</a>{% endif %}
+</div>
+
+{% if admin.search_fields or admin.list_filter or admin.date_hierarchy %}
+<form method="get" class="filter-bar">
+    {% if admin.search_fields %}
+    <input type="search" name="q" value="{{ q }}" placeholder="Search…">
+    {% endif %}
+    {% for filter_name, options in filter_options.items() %}
+    <select name="{{ filter_name }}" onchange="this.form.submit()">
+        <option value="">All {{ filter_name.replace('_', ' ') }}</option>
+        {% for value, label in options %}
+        <option value="{{ value }}" {{ 'selected' if active_filters.get(filter_name) == value else '' }}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    {% endfor %}
+    {% if admin.date_hierarchy %}
+    <label class="date-filter">From <input type="date" name="date_from" value="{{ date_from }}"></label>
+    <label class="date-filter">To <input type="date" name="date_to" value="{{ date_to }}"></label>
+    {% endif %}
+    <button type="submit" class="secondary-button">Filter</button>
+    {% if q or active_filters or date_from or date_to %}<a href="/admin/{{ admin.slug }}">Clear</a>{% endif %}
+</form>
+{% endif %}
+
+<form method="post" action="/admin/{{ admin.slug }}/action" id="list-form">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <div class="action-bar">
+        <select name="action">
+            {% if admin.can_delete %}<option value="delete_selected">Delete selected</option>{% endif %}
+            {% for action in admin.actions %}
+            <option value="{{ action.name }}">{{ action.label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="secondary-button" onclick="return confirm('Apply this action to the selected rows?')">Apply</button>
+    </div>
+    <div class="table-wrap">
+    <table>
+        <thead>
+        <tr>
+            <th><input type="checkbox" onclick="document.querySelectorAll('.row-check').forEach(c => c.checked = this.checked)"></th>
+            {% for col in columns %}<th>{{ col.replace('__str__', admin.label).replace('_', ' ') }}</th>{% endfor %}
+            <th></th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for obj_id, cells in rows %}
+        <tr>
+            <td><input type="checkbox" class="row-check" name="ids" value="{{ obj_id }}"></td>
+            {% for cell in cells %}<td>{{ cell }}</td>{% endfor %}
+            <td class="row-actions">
+                <a href="/admin/{{ admin.slug }}/{{ obj_id }}/edit">Edit</a>
+                {% if admin.can_delete %}<a href="/admin/{{ admin.slug }}/{{ obj_id }}/delete">Delete</a>{% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="{{ columns|length + 2 }}" class="empty">No {{ admin.label.lower() }}s found.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+</form>
+
+{% set qsp = qs_without_page + '&' if qs_without_page else '' %}
+<div class="pagination">
+    {% if page > 1 %}<a href="?{{ qsp }}page={{ page - 1 }}">&larr; Previous</a>{% endif %}
+    <span>Page {{ page }}</span>
+    {% if has_next %}<a href="?{{ qsp }}page={{ page + 1 }}">Next &rarr;</a>{% endif %}
+</div>
+{% endblock %}

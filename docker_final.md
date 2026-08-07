@@ -121,7 +121,7 @@ docker exec -it openoutreach python manage.py createsuperuser
 ### Web Interfaces
 
 ```
-Django Admin:  http://<VPS_IP>:8002/admin/
+Admin Panel:   http://<VPS_IP>:8002/admin/
 Web VNC:       http://<VPS_IP>:6082/vnc.html
 ```
 
@@ -188,7 +188,7 @@ rm -rf /home/outreach/openoutreach_data
 
 ---
 
-## ⚙️ Django Admin Tasks
+## ⚙️ Admin Panel Tasks
 
 ```bash
 # Run migrations
@@ -233,7 +233,7 @@ nano /home/outreach/openoutreach_data/config.json
 # 2. Restart container to apply changes
 docker restart openoutreach
 
-# Or edit directly in Django Admin:
+# Or edit directly in the admin panel:
 # http://<VPS_IP>:8002/admin/
 ```
 
@@ -385,7 +385,7 @@ docker-compose -f docker-compose.openoutreach.yml down -v
 
 ## 📊 Configuration Reference
 
-### LinkedIn Settings (Edit in Django Admin)
+### LinkedIn Settings (Edit in the Admin Panel)
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|

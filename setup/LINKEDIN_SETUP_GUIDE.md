@@ -215,7 +215,7 @@ Booking Link:
 
 ### How to Adjust in OpenOutreach
 
-**Via Django Admin:**
+**Via the admin panel:**
 
 ```
 1. Open http://localhost:8000/admin/
@@ -304,10 +304,10 @@ Would you be open to a quick conversation?
 
 ### How to Customize Messages
 
-In Django Admin:
+In the admin panel:
 
 ```
-1. LinkedIn → Campaign
+1. Click Campaign in the sidebar
 2. Edit campaign
 3. Customize:
    - product_docs: More specific product info
@@ -427,7 +427,7 @@ By using OpenOutreach you agree:
 
 ### Metrics Dashboard
 
-In Django Admin (/admin/):
+In the admin panel (/admin/):
 
 ```
 Campaign Statistics:
@@ -497,16 +497,16 @@ Campaign 2: "FinTech - Payment Processing"
 
 ### Setup Multiple Campaigns:
 
-**In Django Admin:**
+**In the admin panel:**
 
 ```
-1. LinkedIn → Campaigns → Add Campaign
+1. Campaign → Add Campaign
    - Name: "RegTech - Risk Management"
    - Product docs: [compliance-specific]
    - Campaign objective: [compliance-specific]
    - Booking link: [shared or different]
 
-2. LinkedIn → Campaigns → Add Campaign #2
+2. Campaign → Add Campaign #2
    - Name: "FinTech - Payment Processing"
    - Product docs: [payments-specific]
    - Campaign objective: [payments-specific]
@@ -579,7 +579,7 @@ Distribution is proportional to campaign priority/traffic.
    ✅ "VP/Director at AI startups, Series A-B"
 
 2. Add seed profiles
-   - Go to Django Admin → Campaign
+   - Go to the admin panel → Campaign
    - Add LinkedIn profile URLs of ideal customers
    - ML model learns from seeds
 
@@ -625,7 +625,7 @@ Distribution is proportional to campaign priority/traffic.
 - [ ] Set realistic rate limits (start low: 5-10/day)
 - [ ] First batch of profiles discovered
 - [ ] Monitor VNC for LinkedIn warnings
-- [ ] Request connection visible in Django Admin
+- [ ] Request connection visible in the admin panel
 - [ ] Responses tracked in message threads
 - [ ] Metrics showing in dashboard
 

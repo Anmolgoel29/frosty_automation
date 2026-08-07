@@ -31,9 +31,6 @@ class Command(BaseCommand):
     def _ensure_db(self):
         call_command("migrate", "--no-input")
 
-        from linkedin.management.setup_crm import setup_crm
-        setup_crm()
-
     def _ensure_onboarded(self):
         from linkedin.onboarding import apply, collect_from_wizard, missing_keys
 

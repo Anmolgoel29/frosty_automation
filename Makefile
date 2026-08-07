@@ -17,10 +17,9 @@ postgres: ## start a local Postgres container for non-Docker local dev
 	  -v openoutreach_pgdata:/var/lib/postgresql/data \
 	  postgres:16-alpine
 
-setup: install postgres ## install deps + Playwright browsers + start Postgres + migrate + bootstrap CRM
+setup: install postgres ## install deps + Playwright browsers + start Postgres + migrate
 	playwright install --with-deps chromium
 	python manage.py migrate --no-input
-	python manage.py setup_crm
 
 run: ## run the daemon
 	python manage.py rundaemon
@@ -28,12 +27,12 @@ run: ## run the daemon
 test: ## run the test suite
 	.venv/bin/pytest
 
-admin: ## start the Django Admin web server
+admin: ## start the FastAPI admin web server
 	@echo ""
-	@echo "  Django Admin: http://localhost:8000/admin/"
+	@echo "  Admin panel: http://localhost:8000/admin/"
 	@echo "  No superuser yet? Run: python manage.py createsuperuser"
 	@echo ""
-	python manage.py runserver
+	python -m uvicorn webadmin.main:app --host 0.0.0.0 --port 8000
 
 # Docker targets
 logs: ## follow the logs of the service

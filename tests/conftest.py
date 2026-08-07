@@ -4,18 +4,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from linkedin.management.setup_crm import setup_crm
 from tests.factories import UserFactory
-
-
-@pytest.fixture(autouse=True)
-def _ensure_crm_data(db):
-    """
-    Ensure CRM bootstrap data exists before every test.
-    Uses `db` fixture (not transactional_db) for compatibility.
-    Since transaction=True tests rollback, we re-create data each time.
-    """
-    setup_crm()
 
 
 @pytest.fixture(autouse=True)

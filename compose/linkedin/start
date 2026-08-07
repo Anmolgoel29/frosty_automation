@@ -3,7 +3,7 @@
 #
 # Runs three things in one container:
 #   1. Xvfb + VNC  — so you can watch the Playwright browser live.
-#   2. Django admin web server (port 8000) — always up, so the admin panel is
+#   2. FastAPI admin web server (port 8000) — always up, so the admin panel is
 #      reachable whenever you want, independent of the automation daemon.
 #   3. The automation daemon (rundaemon) — supervised, restarts if it exits.
 
@@ -45,11 +45,10 @@ shutdown() {
 }
 trap shutdown SIGTERM SIGINT
 
-# Admin web server — always up. --insecure serves admin static even if
-# DJANGO_DEBUG=false; --noreload keeps a single stable process.
+# Admin web server — always up.
 (
     while true; do
-        python manage.py runserver 0.0.0.0:8000 --noreload --insecure || true
+        python -m uvicorn webadmin.main:app --host 0.0.0.0 --port 8000 || true
         echo "[start] admin web server exited — restarting in 3s"
         sleep 3
     done

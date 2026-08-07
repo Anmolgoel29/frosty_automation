@@ -13,7 +13,7 @@ OpenOutreach is a **self-hosted, open-source LinkedIn automation tool** for B2B 
 - **GUI + VNC** — Watch automation happen in real-time via browser-based VNC viewer
 
 ### Key Components:
-- **Django CRM** — Web admin interface to manage leads, deals, campaigns
+- **CRM Admin Panel** — Web admin interface to manage leads, deals, campaigns
 - **Playwright Browser** — Autonomous LinkedIn browser automation
 - **ML Pipeline** — Gaussian Process learns your ideal customer profile  
 - **LLM Integration** — Bring your own API key (OpenAI, Anthropic, Groq, Mistral, etc.)
@@ -135,7 +135,7 @@ open vnc://localhost:5900
 **Windows:**
 Download RealVNC Viewer or TightVNC and connect to `localhost:5900`
 
-### Option 3: Django Admin CRM Interface
+### Option 3: Admin Panel CRM Interface
 
 After first run, create a superuser:
 
@@ -149,7 +149,7 @@ python manage.py createsuperuser
 
 Then open: **http://localhost:8000/admin/**
 
-In Django Admin you can:
+In the admin panel you can:
 - View/manage Leads and Deals
 - Monitor campaign progress
 - Adjust rate limits
@@ -246,7 +246,7 @@ Open **http://localhost:6080/vnc.html** and you'll see:
 
 ### Rate Limits
 
-Edit via Django Admin (/admin/linkedin/linkedinprofile/):
+Edit via the admin panel (/admin/linkedinprofile/):
 
 ```
 Connect Daily Limit: 20 (connections per day)
@@ -261,7 +261,7 @@ Follow-up Daily Limit: 30 (messages per day)
 
 ### Campaign Adjustment
 
-In Django Admin (/admin/linkedin/campaign/), you can:
+In the admin panel (/admin/campaign/), you can:
 
 - **Add seed profiles** — Point AI to specific target profiles
 - **Update product docs** — Refine product description
@@ -270,8 +270,8 @@ In Django Admin (/admin/linkedin/campaign/), you can:
 
 ### LLM Model Switching
 
-LLM settings live on the `SiteConfig` DB row, not environment variables — edit via Django Admin
-(SiteConfig model, reachable by direct URL at `/admin/linkedin/siteconfig/1/change/`) and restart
+LLM settings live on the `SiteConfig` DB row, not environment variables — edit via the admin panel
+(SiteConfig model, reachable by direct URL at `/admin/siteconfig/1/edit`) and restart
 the daemon. There are two independent model slots: `chat_ai_model` (higher-end, used only by the
 follow-up messaging agent) and `task_ai_model` (cheaper/faster, used for qualification, search
 keywords, and fact extraction) — each with its own provider/key/base.
@@ -408,7 +408,7 @@ docker run --pull always -it \
 - **Response rate** — % who reply to messages
 - **Conversion rate** — % who book meetings
 
-All visible in Django Admin (/admin/) and via VNC.
+All visible in the admin panel (/admin/) and via VNC.
 
 ---
 
@@ -606,7 +606,7 @@ Booking Link: https://calendly.com/your-link
 - [ ] Container starts without errors
 - [ ] VNC accessible at http://localhost:6080/vnc.html
 - [ ] Onboarding wizard completes (LinkedIn + LLM credentials saved)
-- [ ] Django Admin accessible at http://localhost:8000/admin/
+- [ ] Admin panel accessible at http://localhost:8000/admin/
 - [ ] First batch of profiles discovered (visible in CRM)
 - [ ] Browser automation visible in VNC viewer
 - [ ] No LinkedIn warnings/blocks on account

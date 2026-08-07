@@ -138,7 +138,7 @@ The interactive onboarding will prompt for LinkedIn credentials, LLM API key, an
 
 ### 3. View Your Data (CRM Admin)
 
-OpenOutreach includes a full CRM web interface powered by DjangoCRM:
+OpenOutreach includes a full CRM web interface:
 ```bash
 # Create an admin account (first time only)
 python manage.py createsuperuser
@@ -147,7 +147,7 @@ python manage.py createsuperuser
 make admin
 ```
 Then open:
-- **Django Admin:** http://localhost:8000/admin/
+- **Admin panel:** http://localhost:8000/admin/
 
 ---
 ## ✨ Features
@@ -160,7 +160,7 @@ Then open:
 | 🛡️ **Voyager API Scraping**       | Uses LinkedIn's internal API for accurate, structured profile data (no fragile HTML parsing).                        |
 | 🔄 **Stateful Pipeline**          | Tracks profile states (`QUALIFIED` → `READY_TO_CONNECT` → `PENDING` → `CONNECTED` → `COMPLETED`) in a local DB — fully resumable. |
 | ⏱️ **Smart Rate Limiting**        | Configurable daily/weekly limits per action type, respects LinkedIn's own limits automatically.                      |
-| 💾 **Built-in CRM**               | Full data ownership via DjangoCRM with Django Admin UI — browse Leads, Contacts, Companies, and Deals.              |
+| 💾 **Built-in CRM**               | Full data ownership — browse Leads, Campaigns, and Deals via the built-in admin panel.              |
 | 🐳 **One-Command Deployment**      | Dockerized setup with interactive onboarding and VNC browser view (`localhost:5900`).                                |
 | ✍️ **AI-Powered Messaging**        | Agentic multi-turn follow-up conversations — the AI agent reads history, sends messages, and schedules future follow-ups. |
 
@@ -187,7 +187,7 @@ All qualification decisions go through the LLM. The GP model selects which candi
 
 **Cold start:** With fewer than 2 labelled profiles, the model can't fit — candidates are selected in order and qualified via LLM. As labels accumulate, the GP becomes better at selecting high-value candidates.
 
-Configure rate limits and behavior via Django Admin (LinkedInProfile + Campaign models).
+Configure rate limits and behavior via the admin panel (LinkedInProfile + Campaign models).
 
 ---
 

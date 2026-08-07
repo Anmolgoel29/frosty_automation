@@ -1,11 +1,11 @@
 # Configuration
 
 Configuration is split between environment variables (`.env` file), Django models (managed via interactive
-onboarding or Django Admin), and hardcoded defaults in `linkedin/conf.py`.
+onboarding or the admin panel), and hardcoded defaults in `linkedin/conf.py`.
 
 ## LLM Configuration
 
-LLM settings are stored on the `SiteConfig` DB singleton (editable via Django Admin, or prompted
+LLM settings are stored on the `SiteConfig` DB singleton (editable via the admin panel, or prompted
 during interactive onboarding if missing). There are two independent configurations — a
 higher-end model for messaging/chat and a cheaper/faster model for everything else — each can use
 a different provider.
@@ -24,7 +24,7 @@ a different provider.
 ## Campaign Settings (Django Model)
 
 Campaign data is stored in the `Campaign` Django model (with `name` and `users` M2M), managed via
-Django Admin (`/admin/`) or created during interactive onboarding.
+the admin panel (`/admin/`) or created during interactive onboarding.
 
 | Field | Type | Description |
 |:------|:-----|:------------|
@@ -37,7 +37,7 @@ Django Admin (`/admin/`) or created during interactive onboarding.
 ## Account Settings (Django Model)
 
 Account data is stored in the `LinkedInProfile` Django model (1:1 with `auth.User`), managed via
-Django Admin or created during interactive onboarding.
+the admin panel or created during interactive onboarding.
 
 | Field | Type | Description | Default |
 |:------|:-----|:------------|:--------|

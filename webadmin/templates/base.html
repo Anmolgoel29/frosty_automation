@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}OpenOutreach Admin{% endblock %}</title>
+    <link rel="stylesheet" href="/admin/static/admin.css">
+</head>
+<body>
+{% if user %}
+<div class="shell">
+    <nav class="sidebar">
+        <div class="brand"><a href="/admin/">OpenOutreach</a></div>
+        <ul class="nav-list">
+            {% for item in nav_items() %}
+            <li><a href="/admin/{{ item.slug }}" class="{{ 'active' if admin and admin.slug == item.slug else '' }}">{{ item.label }}</a></li>
+            {% endfor %}
+        </ul>
+    </nav>
+    <div class="main">
+        <header class="topbar">
+            <span class="user">{{ user.username }}</span>
+            <form method="post" action="/admin/logout" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+                <button type="submit" class="link-button">Log out</button>
+            </form>
+        </header>
+        {% if flash %}<div class="flash">{{ flash }}</div>{% endif %}
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+</div>
+{% else %}
+    {% block bare_content %}{% endblock %}
+{% endif %}
+</body>
+</html>

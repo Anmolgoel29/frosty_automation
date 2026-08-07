@@ -18,4 +18,9 @@ pyyaml
 fastembed
 scikit-learn
 huggingface_hub
-django-unfold
+fastapi
+uvicorn
+sqlalchemy[asyncio]
+asyncpg
+python-multipart
+itsdangerous

@@ -484,7 +484,7 @@ def _create_seed_leads(campaign, seed_urls: str) -> None:
 
 def apply(config: OnboardConfig) -> None:
     """Idempotent: create missing Campaign, Account, env vars, and legal acceptance."""
-    from linkedin.management.setup_crm import DEFAULT_CAMPAIGN_NAME
+    from linkedin.conf import DEFAULT_CAMPAIGN_NAME
     from linkedin.models import Campaign, LinkedInProfile
 
     # Campaign

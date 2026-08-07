@@ -4,7 +4,7 @@ The container runs three things at once:
 
 | Service | Port | URL |
 |:--------|:-----|:----|
-| Django admin panel (always up) | 8000 | http://localhost:8000/admin/ |
+| Admin panel (always up) | 8000 | http://localhost:8000/admin/ |
 | Browser view — noVNC (in-browser) | 6080 | http://localhost:6080/vnc.html |
 | Browser view — native VNC client | 5900 | `vnc://localhost:5900` (no password) |
 
@@ -32,7 +32,7 @@ All data (CRM database, cookies, model blobs, embeddings) persists in the `openo
 
 Configure the daemon in one of two ways:
 
-- **Django Admin** — open http://localhost:8000/admin/ and create a `LinkedInProfile`, a `Campaign`, and fill in `Site Configuration` (LLM key). The daemon starts automatically once the required fields are present.
+- **Admin panel** — open http://localhost:8000/admin/ and create a `LinkedInProfile`, a `Campaign`, and fill in `Site Configuration` (LLM key). The daemon starts automatically once the required fields are present.
 - **`config.json`** — drop a `config.json` into the data volume (`/app/data/config.json`). See `setup/docker_setup.md` for the full field list.
 
 The `DJANGO_SUPERUSER_*` env vars auto-create the admin login on first boot (skipped if it already exists). Omit them and create one manually with `docker exec -it openoutreach python manage.py createsuperuser`.
@@ -124,7 +124,7 @@ HOST_UID=$(id -u) HOST_GID=$(id -g) make up
 
 Open http://localhost:8000/admin/ and log in (`admin` / `admin` by default with compose). The panel is served by the container at all times, independent of the automation daemon.
 
-Reaching it from a remote host/IP (e.g. a VPS) instead of `localhost`? Set `CSRF_TRUSTED_ORIGINS` so admin login isn't rejected by Django's CSRF check, e.g. `-e CSRF_TRUSTED_ORIGINS=http://<VPS_IP>:8000`. Or tunnel over SSH and keep using `localhost` (see `setup/docker_setup.md`).
+Reaching it from a remote host/IP (e.g. a VPS) instead of `localhost` works with no extra config — the admin's CSRF check is a same-origin double-submit cookie, not an origin allowlist, so there's nothing to set for a different host/IP. Prefer tunneling over SSH and keeping using `localhost` anyway if the panel isn't behind TLS (see `setup/docker_setup.md`).
 
 ### Volume Mounts
 

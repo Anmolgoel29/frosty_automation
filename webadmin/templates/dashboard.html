@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — OpenOutreach Admin{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="stat-grid">
+    <div class="stat-tile">
+        <div class="stat-label">Messages Sent</div>
+        <div class="stat-value">{{ messages_sent }}</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-label">Replies Received</div>
+        <div class="stat-value">{{ replies_received }}</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-label">Connection Requests Sent</div>
+        <div class="stat-value">{{ connect_requests_sent }}</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-label">Connection Requests Accepted</div>
+        <div class="stat-value">{{ connect_requests_accepted }}</div>
+    </div>
+</div>
+{% endblock %}

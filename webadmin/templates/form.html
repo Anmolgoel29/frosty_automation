@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Add' if is_add else 'Edit' }} {{ admin.label }} — OpenOutreach Admin{% endblock %}
+{% block content %}
+<h1>{{ 'Add' if is_add else 'Edit' }} {{ admin.label }}</h1>
+
+{% if errors %}
+<div class="form-error">
+    <ul>{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<form method="post" class="object-form">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    {% for row in field_rows %}
+    {% set spec = row.spec %}
+    <div class="form-row">
+        <label for="field-{{ spec.name }}">{{ spec.label }}{% if spec.kind == 'datetime' %} (UTC){% endif %}</label>
+        {% if row.readonly %}
+            <div class="readonly-value">
+                {% if spec.kind == 'fk' %}{{ row.value.label if row.value else '—' }}
+                {% elif spec.kind == 'checkbox' %}{{ 'Yes' if row.value else 'No' }}
+                {% else %}{{ row.value if row.value not in (None, '') else '—' }}
+                {% endif %}
+            </div>
+        {% elif spec.kind == 'checkbox' %}
+            <input type="checkbox" id="field-{{ spec.name }}" name="{{ spec.name }}" {{ 'checked' if row.value else '' }}>
+        {% elif spec.kind == 'select' %}
+            <select id="field-{{ spec.name }}" name="{{ spec.name }}">
+                {% if spec.nullable %}<option value="" {{ 'selected' if not row.value else '' }}>——</option>{% endif %}
+                {% for v, l in row.options %}
+                <option value="{{ v }}" {{ 'selected' if v == row.value else '' }}>{{ l }}</option>
+                {% endfor %}
+            </select>
+        {% elif spec.kind == 'fk' and spec.is_raw_id %}
+            <input type="number" id="field-{{ spec.name }}" name="{{ spec.name }}" value="{{ row.value.id or '' }}" placeholder="id">
+            <span class="hint">{{ row.value.label if row.value else '' }}</span>
+        {% elif spec.kind == 'fk' %}
+            <select id="field-{{ spec.name }}" name="{{ spec.name }}">
+                {% if spec.nullable %}<option value="">——</option>{% endif %}
+                {% for v, l in row.options %}
+                <option value="{{ v }}" {{ 'selected' if row.value and v == row.value.id else '' }}>{{ l }}</option>
+                {% endfor %}
+            </select>
+        {% elif spec.kind == 'm2m' %}
+            <select id="field-{{ spec.name }}" name="{{ spec.name }}" multiple size="6">
+                {% for v, l in row.options %}
+                <option value="{{ v }}" {{ 'selected' if v in row.value else '' }}>{{ l }}</option>
+                {% endfor %}
+            </select>
+        {% elif spec.kind in ('textarea', 'json') %}
+            <textarea id="field-{{ spec.name }}" name="{{ spec.name }}" rows="{{ 8 if spec.kind == 'json' else 4 }}">{{ row.value }}</textarea>
+        {% elif spec.kind == 'datetime' %}
+            <input type="datetime-local" id="field-{{ spec.name }}" name="{{ spec.name }}" value="{{ row.value }}">
+        {% elif spec.kind == 'number' %}
+            <input type="number" step="1" id="field-{{ spec.name }}" name="{{ spec.name }}" value="{{ row.value }}">
+        {% elif spec.kind == 'float' %}
+            <input type="number" step="any" id="field-{{ spec.name }}" name="{{ spec.name }}" value="{{ row.value }}">
+        {% else %}
+            <input type="text" id="field-{{ spec.name }}" name="{{ spec.name }}" value="{{ row.value }}">
+        {% endif %}
+    </div>
+    {% endfor %}
+    <div class="form-actions">
+        <button type="submit" class="primary-button">Save</button>
+        <a href="/admin/{{ admin.slug }}" class="secondary-button">Cancel</a>
+    </div>
+</form>
+{% endblock %}

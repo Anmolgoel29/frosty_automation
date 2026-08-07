@@ -41,6 +41,7 @@ HUMAN_TYPE_MAX_DELAY_MS = 200
 DEFAULT_CONNECT_DAILY_LIMIT = 20
 DEFAULT_CONNECT_WEEKLY_LIMIT = 100
 DEFAULT_FOLLOW_UP_DAILY_LIMIT = 25
+DEFAULT_CAMPAIGN_NAME = "LinkedIn Outreach"
 
 # ----------------------------------------------------------------------
 # Active-hours schedule (daemon pauses outside this window)
