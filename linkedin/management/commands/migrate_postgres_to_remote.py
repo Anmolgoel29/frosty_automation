@@ -32,6 +32,7 @@ EXCLUDED_APPS = ["contenttypes", "auth.permission"]
 # dump and skipped in the row-count verification (their counts legitimately differ).
 _REGENERATED = {ContentType, Permission}
 
+_SOURCE_ALIAS = "postgres_source"
 _TARGET_ALIAS = "postgres_target"
 
 # How often the streaming loader prints a global progress heartbeat, in seconds.
@@ -40,34 +41,46 @@ _PROGRESS_INTERVAL = 2.0
 
 class Command(BaseCommand):
     help = (
-        "Copy all data from the current (local) Postgres into a remote Postgres "
-        "such as Supabase / Neon / RDS. Source is the ambient DATABASE_URL; the "
-        "target is given by --target-url (or the TARGET_DATABASE_URL env var). "
-        "The target's schema is migrated first, then data is streamed in with "
-        "live per-model progress, and finally row counts are verified. The target "
-        "should be empty (fresh project) — its own rows for tables being loaded "
-        "would otherwise collide on primary key."
+        "Copy all data from one Postgres into another — e.g. from a Supabase "
+        "project to a fresh Neon / RDS / self-hosted Postgres. Both endpoints are "
+        "given explicitly: --source-url (or the ambient DATABASE_URL) is read from, "
+        "--target-url (or the TARGET_DATABASE_URL env var) is written to. The "
+        "target's schema is migrated first, then data is streamed in with live "
+        "per-model progress, and finally row counts are verified. The target should "
+        "be empty (fresh project) — its own rows for tables being loaded would "
+        "otherwise collide on primary key."
     )
 
     def add_arguments(self, parser):
         parser.add_argument(
+            "--source-url",
+            default=os.environ.get("DATABASE_URL"),
+            help=(
+                "DATABASE_URL of the Postgres to copy FROM, e.g. "
+                "postgresql://postgres:pw@db.xxx.supabase.co:5432/postgres?sslmode=require . "
+                "Defaults to the ambient DATABASE_URL / POSTGRES_* configuration."
+            ),
+        )
+        parser.add_argument(
             "--target-url",
             default=os.environ.get("TARGET_DATABASE_URL"),
             help=(
-                "DATABASE_URL of the remote Postgres to copy into, e.g. "
-                "postgresql://postgres:pw@db.xxx.supabase.co:5432/postgres?sslmode=require"
+                "DATABASE_URL of the Postgres to copy INTO, e.g. "
+                "postgresql://postgres:pw@ep-xxx.neon.tech:5432/postgres?sslmode=require"
             ),
         )
 
     def handle(self, *args, **options):
+        # Fall back to the ambient config only when --source-url is omitted, so a
+        # bare `manage.py migrate_postgres_to_remote --target-url ...` still works.
+        source_url = options["source_url"] or get_database_url()
         target_url = options["target_url"]
         if not target_url:
             raise CommandError(
                 "No target given. Pass --target-url or set TARGET_DATABASE_URL, e.g.\n"
-                "  --target-url 'postgresql://postgres:pw@db.xxx.supabase.co:5432/postgres?sslmode=require'"
+                "  --target-url 'postgresql://postgres:pw@ep-xxx.neon.tech:5432/postgres?sslmode=require'"
             )
 
-        source_url = get_database_url()
         if _same_endpoint(source_url, target_url):
             raise CommandError("Target is the same database as the source — nothing to do.")
 
@@ -80,35 +93,38 @@ class Command(BaseCommand):
         # The migrate step (phase 2) runs in a subprocess with the target as
         # `default` (via DATABASE_URL): its historical data migrations query via
         # `Model.objects` with no `.using(...)`, so they only replay against the
-        # default DB. The load (phase 3) and verification (phase 4) run in-process
-        # against an explicit target connection alias — that lets the loader stream
-        # objects with `save(using=...)` and report progress instead of shelling
-        # out to the opaque `loaddata` command. The parent keeps the source as
-        # `default` throughout (used for the dump and the source side of verify).
+        # default DB. Every other phase runs in-process against explicit connection
+        # aliases (postgres_source / postgres_target) rather than the ambient
+        # `default`, so the source and target are exactly the two URLs passed in and
+        # nothing depends on how DATABASE_URL happens to be set. The target alias
+        # also lets the loader stream objects with `save(using=...)` and report
+        # progress instead of shelling out to the opaque `loaddata` command.
         target_env = {**os.environ, "DATABASE_URL": target_url}
         # Drop the POSTGRES_* fallbacks so a stray one can't override DATABASE_URL
         # in the child (get_database_url prefers DATABASE_URL, but be explicit).
         for var in ("POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST", "POSTGRES_PORT"):
             target_env.pop(var, None)
 
-        self._register_target_alias(target_url)
+        self._register_alias(_SOURCE_ALIAS, source_url)
+        self._register_alias(_TARGET_ALIAS, target_url)
 
         self._log(f"Source: {_redact(source_url)}")
         self._log(f"Target: {_redact(target_url)}")
 
-        self._log("1/4 Exporting all data from the local Postgres...")
+        self._log("1/4 Exporting all data from the source Postgres...")
         call_command(
             "dumpdata",
             "--natural-foreign", "--natural-primary",
             *[arg for app in EXCLUDED_APPS for arg in ("--exclude", app)],
             "-o", str(export_path),
+            database=_SOURCE_ALIAS,
         )
         self._log(f"  wrote {_human_size(export_path.stat().st_size)} to {export_path.name}")
 
-        self._log("2/4 Applying migrations to the remote Postgres...")
+        self._log("2/4 Applying migrations to the target Postgres...")
         _run(manage_py, ["migrate", "--no-input", "-v", "0"], target_env)
 
-        self._log("3/4 Loading data into the remote Postgres...")
+        self._log("3/4 Loading data into the target Postgres...")
         self._load_with_progress(export_path)
 
         self._verify_row_counts()
@@ -117,8 +133,8 @@ class Command(BaseCommand):
             self.style.SUCCESS(f"Migration complete. Export kept at {export_path} as a backup.")
         )
 
-    def _register_target_alias(self, target_url: str) -> None:
-        """Add the remote as a usable connection alias.
+    def _register_alias(self, alias: str, url: str) -> None:
+        """Add a Postgres URL as a usable connection alias.
 
         Django applies its per-alias defaults (OPTIONS, TIME_ZONE, CONN_MAX_AGE,
         ...) only in ConnectionHandler.configure_settings, which runs once and is
@@ -126,8 +142,8 @@ class Command(BaseCommand):
         them, and the backend reads those keys unconditionally. So spell out a
         fully-defaulted dict here (same shape as migrate_sqlite_to_postgres).
         """
-        config = django_db_config(target_url)
-        connections.databases[_TARGET_ALIAS] = {
+        config = django_db_config(url)
+        connections.databases[alias] = {
             **config,
             "OPTIONS": config.get("OPTIONS", {}),
             "TIME_ZONE": None,
@@ -150,7 +166,7 @@ class Command(BaseCommand):
         """
         connection = connections[_TARGET_ALIAS]
         total = sum(
-            model.objects.using("default").count()
+            model.objects.using(_SOURCE_ALIAS).count()
             for model in apps.get_models(include_auto_created=True)
             if model not in _REGENERATED
         )
@@ -242,12 +258,12 @@ class Command(BaseCommand):
         ContentType/Permission are skipped: they're regenerated per the
         installed-app set on the target, so their counts legitimately differ.
         """
-        self._log("4/4 Verifying row counts (local -> remote):")
+        self._log("4/4 Verifying row counts (source -> target):")
         mismatches = 0
         for model in sorted(apps.get_models(include_auto_created=True), key=lambda m: m._meta.label):
             if model in _REGENERATED:
                 continue
-            src = model.objects.using("default").count()
+            src = model.objects.using(_SOURCE_ALIAS).count()
             dst = model.objects.using(_TARGET_ALIAS).count()
             flag = "" if src == dst else "  <-- MISMATCH"
             if src != dst:
