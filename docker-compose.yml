@@ -18,6 +18,12 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    # Load a .env sitting next to this compose file (optional — falls back to
+    # the defaults below when absent). Its vars populate the container env and
+    # are also available for the ${VAR} interpolation in `environment:`.
+    env_file:
+      - path: .env
+        required: false
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-openoutreach}
       - POSTGRES_USER=${POSTGRES_USER:-openoutreach}
@@ -43,6 +49,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # Load a .env sitting next to this compose file (optional — falls back to
+    # the defaults below when absent). Put DATABASE_URL, DJANGO_SUPERUSER_*, etc.
+    # here to point the app at your own Postgres/PgBouncer without editing compose.
+    env_file:
+      - path: .env
     environment:
       - ENABLE_VNC=true
       # Auto-created on first boot so you can log into the admin panel.
