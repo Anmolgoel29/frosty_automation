@@ -6,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from webadmin.config import DATABASE_CONNECT_ARGS, DATABASE_URL
 
 # pool_pre_ping: validate a pooled connection before handing it out and
-# transparently reconnect if the remote server (or a hosted pooler/load-balancer
-# like Supabase/Neon/RDS) has closed it while idle — without this, the first
-# request after an idle spell dies with asyncpg "connection is closed".
+# transparently reconnect if the remote server (or a proxy/firewall on the
+# network path to it) has closed it while idle — without this, the first request
+# after an idle spell dies with asyncpg "connection is closed".
 # pool_recycle: proactively drop connections older than 5 min so they never
-# reach the provider's idle-reaping timeout in the first place.
+# reach that idle-drop timeout in the first place.
 engine = create_async_engine(
     DATABASE_URL,
     connect_args=DATABASE_CONNECT_ARGS,
