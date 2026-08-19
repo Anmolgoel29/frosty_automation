@@ -23,6 +23,9 @@ import logging
 import os
 import sys
 from urllib.parse import parse_qs, unquote, urlparse, urlunparse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
