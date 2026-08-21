@@ -12,6 +12,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self._configure_logging(verbose=options["verbosity"] >= 2)
+        self._setup_tracing()
         self._ensure_db()
         self._ensure_onboarded()
         sessions = self._create_sessions()
@@ -28,6 +29,11 @@ class Command(BaseCommand):
 
         level = logging.DEBUG if verbose else logging.INFO
         configure_logging(level=level)
+
+    def _setup_tracing(self):
+        from linkedin.tracing import setup_tracing
+
+        setup_tracing()
 
     def _ensure_db(self):
         call_command("migrate", "--no-input")

@@ -63,6 +63,9 @@ def cli_parser(description: str):
     from linkedin.logging import configure_logging
     configure_logging(level=logging.DEBUG)
 
+    from linkedin.tracing import setup_tracing
+    setup_tracing()
+
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--handle", default=None, help="Django username (default: first active profile)")
     return parser

@@ -25,3 +25,8 @@ asyncpg
 python-multipart
 itsdangerous
 dotenv
+# LLM call tracing (linkedin/tracing.py) — exports pydantic-ai's built-in
+# OpenTelemetry instrumentation to an Arize Phoenix server. The client lib
+# only; no local Phoenix server is bundled, point PHOENIX_COLLECTOR_ENDPOINT
+# at one you run yourself.
+arize-phoenix-otel
