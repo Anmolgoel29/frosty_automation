@@ -27,23 +27,48 @@ export OPENOUTREACH_PER_ACCOUNT_DISPLAY=true
 # which rules out adding accounts to a running daemon.
 VNC_CONTROL_FILE="${OPENOUTREACH_VNC_CONTROL_FILE:-/tmp/openoutreach-vnc-display}"
 
-vnc_follow_selected_display() {
-    local current=""
-    while true; do
-        local wanted
-        wanted="$(cat "$VNC_CONTROL_FILE" 2>/dev/null || true)"
-        [ -z "$wanted" ] && wanted=":99"
+# An X server holds /tmp/.X<n>-lock while it is up — that is how we know a
+# display is real before pointing x11vnc at it (x11vnc exits immediately
+# against a display that isn't listening, leaving the viewer with nothing).
+vnc_display_ready() {
+    [ -e "/tmp/.X${1#:}-lock" ]
+}
 
-        if [ "$wanted" != "$current" ]; then
-            # Only switch once the target display actually exists, otherwise
-            # x11vnc exits immediately and the viewer sees nothing.
-            if [ -e "/tmp/.X${wanted#:}-lock" ] || [ "$wanted" = ":99" ]; then
-                echo "[start] VNC now showing $wanted"
-                pkill -f "x11vnc -display" 2>/dev/null || true
-                x11vnc -display "$wanted" -forever -shared -nopw -rfbport 5900 -bg \
-                    -quiet 2>/dev/null
-                current="$wanted"
-            fi
+# With nothing selected, show the first account that actually has a browser.
+# The accounts live on :100 and up (see vnc.py); :99 is a bare desktop with
+# nothing drawn on it, so defaulting there means staring at an empty screen.
+vnc_default_display() {
+    local lock number best=""
+    for lock in /tmp/.X1[0-9][0-9]-lock; do
+        [ -e "$lock" ] || continue
+        number="${lock#/tmp/.X}"
+        number="${number%-lock}"
+        if [ -z "$best" ] || [ "$number" -lt "$best" ]; then
+            best="$number"
+        fi
+    done
+    if [ -n "$best" ]; then
+        echo ":$best"
+    else
+        echo ":99"
+    fi
+}
+
+vnc_follow_selected_display() {
+    local current="" wanted vnc_pid=""
+    while true; do
+        wanted="$(cat "$VNC_CONTROL_FILE" 2>/dev/null || true)"
+        [ -z "$wanted" ] && wanted="$(vnc_default_display)"
+
+        if [ "$wanted" != "$current" ] && vnc_display_ready "$wanted"; then
+            # Track the pid rather than pkill-ing by pattern: procps isn't
+            # guaranteed in the base image, and a silent pkill failure would
+            # strand the viewer on the previous account forever.
+            [ -n "$vnc_pid" ] && kill "$vnc_pid" 2>/dev/null || true
+            x11vnc -display "$wanted" -forever -shared -nopw -rfbport 5900 -quiet &
+            vnc_pid=$!
+            current="$wanted"
+            echo "[start] VNC now showing $wanted"
         fi
         sleep 2
     done
@@ -51,8 +76,8 @@ vnc_follow_selected_display() {
 
 if [ "${ENABLE_VNC:-true}" = "true" ]; then
     vnc_follow_selected_display &
-    # websockify outlives the x11vnc restarts — the noVNC tab reconnects on
-    # its own when the server behind it comes back.
+    # websockify outlives the x11vnc restarts; open the viewer with
+    # ?reconnect=1 so the tab comes back on its own after a switch.
     websockify --web /opt/noVNC 6080 localhost:5900 &
 fi
 

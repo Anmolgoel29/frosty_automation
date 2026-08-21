@@ -74,10 +74,19 @@ class AccountSession:
         from vnc import display_for, per_account_displays_enabled
 
         if not per_account_displays_enabled():
+            logger.info(
+                "Per-account displays off — %s uses DISPLAY=%s",
+                self, os.environ.get("DISPLAY", "(unset)"),
+            )
             return None
         if self._display is None:
             self._display = display_for(self.linkedin_profile.pk)
             _ensure_xvfb(self._display)
+            logger.info(
+                "%s renders on %s — watch it via Admin → LinkedIn Profile → "
+                "\"Watch this account's browser (VNC)\"",
+                self, self._display,
+            )
         return self._display
 
     @cached_property
