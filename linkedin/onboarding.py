@@ -267,7 +267,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from linkedin.conf import (
     DEFAULT_CONNECT_DAILY_LIMIT,
@@ -310,6 +310,10 @@ class OnboardConfig:
     connect_weekly_limit: int = DEFAULT_CONNECT_WEEKLY_LIMIT
     follow_up_daily_limit: int = DEFAULT_FOLLOW_UP_DAILY_LIMIT
     legal_acceptance: bool = False
+    # Extra LinkedIn accounts to run alongside the primary one, e.g.
+    # [{"email": "...", "password": "...", "campaigns": ["Outreach"]}].
+    # Omit "campaigns" to attach the account to the primary campaign.
+    additional_accounts: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -426,44 +430,126 @@ def _create_campaign(name: str, product_docs: str, objective: str, booking_link:
     return campaign
 
 
-def _create_account(
-    campaign,
+def _unique_username(email: str) -> str:
+    """A free Django username derived from the email local part."""
+    from django.contrib.auth.models import User
+
+    base = email.split("@")[0].lower().replace(".", "_").replace("+", "_")
+    handle, n = base, 2
+    while User.objects.filter(username=handle).exists():
+        handle = f"{base}{n}"
+        n += 1
+    return handle
+
+
+def ensure_account(
     email: str,
-    password: str,
+    password: str = "",
     *,
-    subscribe: bool = True,
+    campaigns=(),
+    username: str | None = None,
+    subscribe: bool = False,
+    update_credentials: bool = False,
     connect_daily: int = DEFAULT_CONNECT_DAILY_LIMIT,
     connect_weekly: int = DEFAULT_CONNECT_WEEKLY_LIMIT,
     follow_up_daily: int = DEFAULT_FOLLOW_UP_DAILY_LIMIT,
 ):
-    """Create a User + LinkedInProfile record and return the profile."""
-    from django.contrib.auth.models import User
+    """Create (or find) a User + LinkedInProfile and attach it to campaigns.
+
+    The single write path for LinkedIn accounts, shared by onboarding and
+    ``manage.py add_profile`` — a campaign runs as many accounts as have
+    been attached here. Idempotent: an existing account (matched on its
+    LinkedIn login) keeps its stored password unless ``update_credentials``
+    says otherwise, and campaign membership is only ever added.
+
+    ``username`` attaches the account to an existing Django user (several
+    LinkedIn accounts may share one, and they then share its campaigns);
+    by default each account gets its own.
+
+    Returns ``(profile, created)``.
+    """
     from linkedin.models import LinkedInProfile
 
-    handle = email.split("@")[0].lower().replace(".", "_").replace("+", "_")
-
-    user, created = User.objects.get_or_create(
-        username=handle,
-        defaults={"is_staff": True, "is_active": True},
+    profile = (
+        LinkedInProfile.objects.filter(linkedin_username=email)
+        .select_related("user")
+        .first()
     )
+    created = profile is None
+
     if created:
-        user.set_unusable_password()
-        user.save()
+        from django.contrib.auth.models import User
 
-    campaign.users.add(user)
+        if username:
+            user = User.objects.filter(username=username).first()
+            if user is None:
+                raise ValueError(f"No Django user named '{username}'")
+        else:
+            user = User.objects.create(
+                username=_unique_username(email), is_staff=True, is_active=True,
+            )
+            user.set_unusable_password()
+            user.save()
 
-    profile = LinkedInProfile.objects.create(
-        user=user,
-        linkedin_username=email,
-        linkedin_password=password,
-        subscribe_newsletter=subscribe,
-        connect_daily_limit=connect_daily,
-        connect_weekly_limit=connect_weekly,
-        follow_up_daily_limit=follow_up_daily,
-    )
+        profile = LinkedInProfile.objects.create(
+            user=user,
+            linkedin_username=email,
+            linkedin_password=password,
+            subscribe_newsletter=subscribe,
+            connect_daily_limit=connect_daily,
+            connect_weekly_limit=connect_weekly,
+            follow_up_daily_limit=follow_up_daily,
+        )
+        logger.info("Account '%s' created! (email=%s)", user.username, email)
+    elif update_credentials and password:
+        # A changed password invalidates the stored cookies — drop them so
+        # the next session logs in fresh instead of failing on a stale one.
+        profile.linkedin_password = password
+        profile.cookie_data = None
+        profile.save(update_fields=["linkedin_password", "cookie_data"])
+        logger.info("Account '%s' credentials updated.", profile.user.username)
 
-    logger.info("Account '%s' created! (email=%s)", handle, email)
-    return profile
+    for campaign in campaigns:
+        campaign.users.add(profile.user)
+
+    return profile, created
+
+
+def _apply_additional_accounts(config: "OnboardConfig", campaign) -> None:
+    """Create the extra LinkedIn accounts listed in ``additional_accounts``.
+
+    Each entry is ``{"email": ..., "password": ..., "campaigns": [names]}``;
+    ``campaigns`` is optional and defaults to the primary campaign, which is
+    the common case — several accounts prospecting one campaign together.
+    """
+    from linkedin.models import Campaign
+
+    for entry in config.additional_accounts or []:
+        email = (entry.get("email") or "").strip()
+        if not email:
+            logger.warning("Skipping additional account with no email: %r", entry)
+            continue
+
+        names = entry.get("campaigns")
+        if names:
+            campaigns = list(Campaign.objects.filter(name__in=names))
+            missing = set(names) - {c.name for c in campaigns}
+            if missing:
+                logger.warning("Unknown campaign(s) for %s: %s", email, ", ".join(sorted(missing)))
+        else:
+            campaigns = [campaign] if campaign else []
+
+        _, created = ensure_account(
+            email,
+            entry.get("password", ""),
+            campaigns=campaigns,
+            subscribe=False,
+            connect_daily=entry.get("connect_daily_limit", config.connect_daily_limit),
+            connect_weekly=entry.get("connect_weekly_limit", config.connect_weekly_limit),
+            follow_up_daily=entry.get("follow_up_daily_limit", config.follow_up_daily_limit),
+        )
+        if not created:
+            logger.info("Additional account %s already exists — campaigns synced.", email)
 
 
 def _create_seed_leads(campaign, seed_urls: str) -> None:
@@ -503,15 +589,19 @@ def apply(config: OnboardConfig) -> None:
         not LinkedInProfile.objects.filter(active=True).exists()
         and config.linkedin_email
     ):
-        _create_account(
-            campaign,
+        ensure_account(
             config.linkedin_email,
             config.linkedin_password,
+            campaigns=[campaign] if campaign else [],
             subscribe=False,
             connect_daily=config.connect_daily_limit,
             connect_weekly=config.connect_weekly_limit,
             follow_up_daily=config.follow_up_daily_limit,
         )
+
+    # Extra LinkedIn accounts running the same campaign. Create-only: an
+    # account already in the DB keeps whatever the admin panel says.
+    _apply_additional_accounts(config, campaign)
 
     # LLM config → DB
     from linkedin.models import SiteConfig

@@ -73,10 +73,15 @@ def _make_old_deal(session, days):
     )
 
 
-def _make_task(task_type, payload, **kwargs):
-    """Create a task and mark it RUNNING (matching daemon behavior)."""
+def _make_task(session, task_type, payload, **kwargs):
+    """Create a task and mark it RUNNING (matching daemon behavior).
+
+    Tasks carry the account that must execute them; the daemon looks that up
+    to pick the browser session, so tests build the row the same way.
+    """
     return Task.objects.create(
         task_type=task_type,
+        linkedin_profile=session.linkedin_profile,
         status=Task.Status.RUNNING,
         scheduled_at=kwargs.pop("scheduled_at", timezone.now()),
         started_at=timezone.now(),
@@ -114,7 +119,7 @@ class TestHandleConnect:
         mock_status.return_value = ProfileState.QUALIFIED
         mock_send.return_value = ProfileState.PENDING
 
-        task = _make_task(Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
+        task = _make_task(fake_session, Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
         qualifiers = _build_context(fake_session)
         handle_connect(task, fake_session, qualifiers)
 
@@ -131,7 +136,7 @@ class TestHandleConnect:
         mock_status.return_value = ProfileState.QUALIFIED
         mock_send.return_value = ProfileState.PENDING
 
-        task = _make_task(Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
+        task = _make_task(fake_session, Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
         qualifiers = _build_context(fake_session)
         handle_connect(task, fake_session, qualifiers)
 
@@ -148,7 +153,7 @@ class TestHandleConnect:
         mock_strategy.return_value = _mock_strategy(self._candidate())
         mock_status.return_value = ProfileState.CONNECTED
 
-        task = _make_task(Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
+        task = _make_task(fake_session, Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
         qualifiers = _build_context(fake_session)
         handle_connect(task, fake_session, qualifiers)
 
@@ -167,7 +172,7 @@ class TestHandleConnect:
         mock_strategy.return_value = _mock_strategy(self._candidate())
         mock_status.side_effect = ReachedConnectionLimit("weekly limit")
 
-        task = _make_task(Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
+        task = _make_task(fake_session, Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
         qualifiers = _build_context(fake_session)
         handle_connect(task, fake_session, qualifiers)
 
@@ -183,7 +188,7 @@ class TestHandleConnect:
         mock_status.return_value = ProfileState.QUALIFIED
         mock_send.side_effect = SkipProfile("bad profile")
 
-        task = _make_task(Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
+        task = _make_task(fake_session, Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
         qualifiers = _build_context(fake_session)
         handle_connect(task, fake_session, qualifiers)
 
@@ -193,7 +198,7 @@ class TestHandleConnect:
     def test_reschedules_when_no_candidate(self, mock_strategy, fake_session):
         mock_strategy.return_value = _mock_strategy(None)
 
-        task = _make_task(Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
+        task = _make_task(fake_session, Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
         qualifiers = _build_context(fake_session)
         handle_connect(task, fake_session, qualifiers)
 
@@ -215,7 +220,7 @@ class TestHandleConnect:
         mock_status.return_value = ProfileState.QUALIFIED
         mock_send.return_value = ProfileState.PENDING
 
-        task = _make_task(Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
+        task = _make_task(fake_session, Task.TaskType.CONNECT, {"campaign_id": fake_session.campaign.pk})
         qualifiers = _build_context(fake_session)
         handle_connect(task, fake_session, qualifiers)
 
@@ -243,6 +248,7 @@ class TestHandleCheckPending:
         _make_pending(fake_session)
 
         task = _make_task(
+            fake_session,
             Task.TaskType.CHECK_PENDING,
             {"campaign_id": fake_session.campaign.pk, "public_id": "alice", "backoff_hours": 24},
         )
@@ -263,6 +269,7 @@ class TestHandleCheckPending:
         _make_pending(fake_session)
 
         task = _make_task(
+            fake_session,
             Task.TaskType.CHECK_PENDING,
             {"campaign_id": fake_session.campaign.pk, "public_id": "alice", "backoff_hours": 72},
         )
@@ -289,6 +296,7 @@ class TestHandleCheckPending:
     @patch("linkedin.actions.status.get_connection_status")
     def test_noop_when_deal_missing(self, mock_status, fake_session):
         task = _make_task(
+            fake_session,
             Task.TaskType.CHECK_PENDING,
             {"campaign_id": fake_session.campaign.pk, "public_id": "nonexistent", "backoff_hours": 24},
         )
@@ -313,6 +321,7 @@ class TestHandleFollowUp:
         _make_connected(fake_session)
 
         task = _make_task(
+            fake_session,
             Task.TaskType.FOLLOW_UP,
             {"campaign_id": fake_session.campaign.pk, "public_id": "alice"},
         )
@@ -345,6 +354,7 @@ class TestHandleFollowUp:
         _make_connected(fake_session)
 
         task = _make_task(
+            fake_session,
             Task.TaskType.FOLLOW_UP,
             {"campaign_id": fake_session.campaign.pk, "public_id": "alice"},
         )
@@ -365,6 +375,7 @@ class TestHandleFollowUp:
         _make_connected(fake_session)
 
         task = _make_task(
+            fake_session,
             Task.TaskType.FOLLOW_UP,
             {"campaign_id": fake_session.campaign.pk, "public_id": "alice"},
         )
@@ -386,6 +397,7 @@ class TestHandleFollowUp:
         _make_connected(fake_session)
 
         task = _make_task(
+            fake_session,
             Task.TaskType.FOLLOW_UP,
             {"campaign_id": fake_session.campaign.pk, "public_id": "alice"},
         )
@@ -436,6 +448,7 @@ class TestHandleFollowUp:
         mock_sync.side_effect = fake_sync
 
         task = _make_task(
+            fake_session,
             Task.TaskType.FOLLOW_UP,
             {"campaign_id": fake_session.campaign.pk, "public_id": "alice"},
         )
@@ -448,6 +461,7 @@ class TestHandleFollowUp:
     @patch("linkedin.agents.follow_up.run_follow_up_agent")
     def test_noop_when_deal_missing(self, mock_agent, fake_session):
         task = _make_task(
+            fake_session,
             Task.TaskType.FOLLOW_UP,
             {"campaign_id": fake_session.campaign.pk, "public_id": "nonexistent"},
         )
@@ -461,6 +475,7 @@ class TestHandleFollowUp:
         fake_session.linkedin_profile.save(update_fields=["follow_up_daily_limit"])
 
         task = _make_task(
+            fake_session,
             Task.TaskType.FOLLOW_UP,
             {"campaign_id": fake_session.campaign.pk, "public_id": "alice"},
         )

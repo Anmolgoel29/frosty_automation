@@ -14,11 +14,12 @@ class Command(BaseCommand):
         self._configure_logging(verbose=options["verbosity"] >= 2)
         self._ensure_db()
         self._ensure_onboarded()
-        session = self._create_session()
-        self._ensure_newsletter(session)
+        sessions = self._create_sessions()
+        for session in sessions.values():
+            self._ensure_newsletter(session)
 
         from linkedin.daemon import run_daemon
-        run_daemon(session)
+        run_daemon(sessions)
 
     # -- Steps ---------------------------------------------------------------
 
@@ -52,8 +53,15 @@ class Command(BaseCommand):
             )
             sys.exit(1)
 
-    def _create_session(self):
-        from linkedin.browser.registry import get_first_active_profile, get_or_create_session
+    def _create_sessions(self):
+        """One AccountSession (and later one browser) per active LinkedIn account.
+
+        Returns a ``{linkedin_profile_pk: AccountSession}`` map — the daemon
+        routes each task to the account that must execute it. Accounts that
+        aren't attached to any campaign are skipped with a warning rather
+        than blocking the rest.
+        """
+        from linkedin.browser.registry import get_active_profiles, get_or_create_session
         from linkedin.models import SiteConfig
 
         cfg = SiteConfig.load()
@@ -64,22 +72,36 @@ class Command(BaseCommand):
             )
             sys.exit(1)
 
-        profile = get_first_active_profile()
-        if profile is None:
+        profiles = get_active_profiles()
+        if not profiles:
             logger.error("No active LinkedIn profiles found.")
             sys.exit(1)
 
-        session = get_or_create_session(profile)
+        sessions = {}
+        for profile in profiles:
+            session = get_or_create_session(profile)
+            if not session.campaigns:
+                logger.warning(
+                    "%s belongs to no campaign — skipping. Attach it with "
+                    "`manage.py add_profile --email %s --campaign <name>`.",
+                    profile, profile.linkedin_username,
+                )
+                continue
+            session.campaign = next(
+                (c for c in session.campaigns if not c.is_freemium), None,
+            ) or session.campaigns[0]
+            sessions[profile.pk] = session
 
-        if not session.campaigns:
-            logger.error("No campaigns found for this user.")
+        if not sessions:
+            logger.error("No campaigns found for any active LinkedIn profile.")
             sys.exit(1)
-        campaign = next(
-            (c for c in session.campaigns if not c.is_freemium), None,
-        ) or session.campaigns[0]
-        session.campaign = campaign
 
-        return session
+        logger.info(
+            "Running %d LinkedIn account(s): %s",
+            len(sessions),
+            ", ".join(s.linkedin_profile.linkedin_username for s in sessions.values()),
+        )
+        return sessions
 
     def _ensure_newsletter(self, session):
         if session.linkedin_profile.newsletter_processed:

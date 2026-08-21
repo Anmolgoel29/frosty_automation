@@ -8,6 +8,7 @@ from linkedin.db.deals import set_profile_state
 from linkedin.db.leads import create_enriched_lead, promote_lead_to_deal
 from linkedin.ml.qualifier import BayesianQualifier
 from linkedin.enums import ProfileState
+from linkedin.pipeline.allocation import allocate_ready_deals
 from linkedin.pipeline.ready_pool import promote_to_ready, find_ready_candidate
 
 
@@ -84,6 +85,9 @@ class TestGetReadyCandidate:
     def test_returns_top_ranked(self, fake_session):
         _make_qualified(fake_session, "alice")
         set_profile_state(fake_session, "alice", ProfileState.READY_TO_CONNECT.value)
+        # The ready pool is per-account: a lead is only visible here once the
+        # round-robin has handed it to this account.
+        allocate_ready_deals(fake_session.campaign)
 
         scorer = BayesianQualifier(seed=42)
         scorer.rank_profiles = lambda profiles, **kw: profiles
@@ -91,3 +95,12 @@ class TestGetReadyCandidate:
         result = find_ready_candidate(fake_session, scorer)
         assert result is not None
         assert result["public_identifier"] == "alice"
+
+    def test_ignores_leads_not_yet_allocated(self, fake_session):
+        _make_qualified(fake_session, "alice")
+        set_profile_state(fake_session, "alice", ProfileState.READY_TO_CONNECT.value)
+
+        scorer = BayesianQualifier(seed=42)
+        scorer.rank_profiles = lambda profiles, **kw: profiles
+
+        assert find_ready_candidate(fake_session, scorer) is None

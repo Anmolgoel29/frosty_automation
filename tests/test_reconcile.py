@@ -7,6 +7,7 @@ from linkedin.db.leads import create_enriched_lead, promote_lead_to_deal
 from linkedin.models import Task
 from linkedin.enums import ProfileState
 from linkedin.tasks.scheduler import reconcile
+from tests.conftest import sessions_map
 
 
 SAMPLE_PROFILE = {
@@ -44,11 +45,12 @@ class TestReconcile:
     def test_recovers_stale_running_tasks(self, fake_session):
         Task.objects.create(
             task_type=Task.TaskType.CONNECT,
+            linkedin_profile=fake_session.linkedin_profile,
             status=Task.Status.RUNNING,
             scheduled_at=timezone.now(),
             payload={"campaign_id": fake_session.campaign.pk},
         )
-        reconcile(fake_session)
+        reconcile(sessions_map(fake_session))
         assert Task.objects.filter(status=Task.Status.RUNNING).count() == 0
         assert Task.objects.filter(
             task_type=Task.TaskType.CONNECT,
@@ -56,16 +58,31 @@ class TestReconcile:
         ).exists()
 
     def test_seeds_connect_per_campaign(self, fake_session):
-        reconcile(fake_session)
+        reconcile(sessions_map(fake_session))
         assert Task.objects.filter(
             task_type=Task.TaskType.CONNECT,
             status=Task.Status.PENDING,
             payload__campaign_id=fake_session.campaign.pk,
         ).count() == 1
 
+    def test_seeds_one_connect_per_account(self, fake_session, second_session):
+        """Each account works the campaign with its own connect loop."""
+        reconcile(sessions_map(fake_session, second_session))
+
+        connects = Task.objects.filter(
+            task_type=Task.TaskType.CONNECT,
+            status=Task.Status.PENDING,
+            payload__campaign_id=fake_session.campaign.pk,
+        )
+        assert connects.count() == 2
+        assert set(connects.values_list("linkedin_profile_id", flat=True)) == {
+            fake_session.linkedin_profile.pk,
+            second_session.linkedin_profile.pk,
+        }
+
     def test_creates_check_pending_for_pending_profiles(self, fake_session):
         _make_pending(fake_session, "alice")
-        reconcile(fake_session)
+        reconcile(sessions_map(fake_session))
         assert Task.objects.filter(
             task_type=Task.TaskType.CHECK_PENDING,
             status=Task.Status.PENDING,
@@ -80,7 +97,7 @@ class TestReconcile:
             lead__linkedin_url=public_id_to_url("alice"),
         ).update(backoff_hours=96)
 
-        reconcile(fake_session)
+        reconcile(sessions_map(fake_session))
         task = Task.objects.get(
             task_type=Task.TaskType.CHECK_PENDING,
             payload__public_id="alice",
@@ -89,19 +106,45 @@ class TestReconcile:
 
     def test_creates_follow_up_for_connected_profiles(self, fake_session):
         _make_connected(fake_session, "alice")
-        reconcile(fake_session)
+        reconcile(sessions_map(fake_session))
         assert Task.objects.filter(
             task_type=Task.TaskType.FOLLOW_UP,
             status=Task.Status.PENDING,
             payload__public_id="alice",
         ).exists()
 
+    def test_deal_tasks_route_to_the_owning_account(self, fake_session, second_session):
+        """A lead the second account connected with is followed up by that
+        account — never by the other one sharing the campaign."""
+        _make_connected(second_session, "alice")
+
+        reconcile(sessions_map(fake_session, second_session))
+
+        task = Task.objects.get(
+            task_type=Task.TaskType.FOLLOW_UP,
+            payload__public_id="alice",
+        )
+        assert task.linkedin_profile_id == second_session.linkedin_profile.pk
+
+    def test_skips_deals_whose_account_is_not_running(self, fake_session, second_session):
+        """An in-flight deal is never handed to another account — the invite
+        and the message thread only exist on the account that sent them."""
+        _make_connected(second_session, "alice")
+
+        reconcile(sessions_map(fake_session))
+
+        assert not Task.objects.filter(
+            task_type=Task.TaskType.FOLLOW_UP,
+            payload__public_id="alice",
+        ).exists()
+
     def test_no_duplicates_on_second_heal(self, fake_session):
         _make_pending(fake_session, "alice")
         _make_connected(fake_session, "bob")
-        reconcile(fake_session)
+        sessions = sessions_map(fake_session)
+        reconcile(sessions)
         count_before = Task.objects.filter(status=Task.Status.PENDING).count()
-        reconcile(fake_session)
+        reconcile(sessions)
         count_after = Task.objects.filter(status=Task.Status.PENDING).count()
         assert count_before == count_after
 
@@ -111,11 +154,12 @@ class TestReconcile:
         # Create a completed check_pending task for alice
         Task.objects.create(
             task_type=Task.TaskType.CHECK_PENDING,
+            linkedin_profile=fake_session.linkedin_profile,
             status=Task.Status.COMPLETED,
             scheduled_at=timezone.now(),
             payload={"campaign_id": fake_session.campaign.pk, "public_id": "alice", "backoff_hours": 24},
         )
-        reconcile(fake_session)
+        reconcile(sessions_map(fake_session))
         # Should still create a new pending task
         assert Task.objects.filter(
             task_type=Task.TaskType.CHECK_PENDING,
@@ -132,6 +176,7 @@ class TestReconcile:
         # pending successor.
         Task.objects.create(
             task_type=Task.TaskType.CHECK_PENDING,
+            linkedin_profile=fake_session.linkedin_profile,
             status=Task.Status.FAILED,
             scheduled_at=timezone.now(),
             payload={"campaign_id": fake_session.campaign.pk, "public_id": "alice", "backoff_hours": 24},
@@ -142,7 +187,7 @@ class TestReconcile:
             payload__public_id="alice",
         ).exists()
 
-        reconcile(fake_session)
+        reconcile(sessions_map(fake_session))
 
         assert Task.objects.filter(
             task_type=Task.TaskType.CHECK_PENDING,

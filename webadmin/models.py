@@ -90,6 +90,7 @@ class Campaign(Base):
     action_fraction: Mapped[float] = mapped_column(Float, default=0.2)
     seed_public_ids: Mapped[list] = mapped_column(JSON, default=list)
     model_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    assignment_cursor: Mapped[int] = mapped_column(Integer, default=0)
 
     users: Mapped[list[User]] = relationship(secondary=campaign_users)
 
@@ -119,7 +120,9 @@ class LinkedInProfile(Base):
     __tablename__ = "linkedin_linkedinprofile"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("auth_user.id"), unique=True)
+    # Not unique: several LinkedIn accounts may share one Django user so they
+    # all inherit its campaign membership (see linkedin/models.py).
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("auth_user.id"))
     self_lead_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("crm_lead.id"), nullable=True,
     )
@@ -138,8 +141,12 @@ class LinkedInProfile(Base):
     self_lead: Mapped[Lead | None] = relationship()
 
     def __str__(self) -> str:
-        username = self.user.username if self.user else "?"
-        return f"{username} ({self.linkedin_username})"
+        # Deliberately does NOT touch ``self.user``: this is rendered for FK
+        # columns (Task, ActionLog, Deal.assigned_profile) from objects loaded
+        # without their relationships, and a lazy load there raises
+        # MissingGreenlet under the async session. The LinkedIn login is the
+        # identifier that matters once several accounts share a campaign.
+        return self.linkedin_username or f"Profile#{self.id}"
 
 
 class SearchKeyword(Base):
@@ -181,12 +188,17 @@ class Task(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     task_type: Mapped[str] = mapped_column(String(20))
+    linkedin_profile_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("linkedin_linkedinprofile.id"),
+    )
     status: Mapped[str] = mapped_column(String(20), default="pending")
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    linkedin_profile: Mapped[LinkedInProfile] = relationship()
 
     def __str__(self) -> str:
         return f"{self.task_type} [{self.status}] scheduled={self.scheduled_at}"
@@ -199,6 +211,9 @@ class Deal(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     lead_id: Mapped[int] = mapped_column(Integer, ForeignKey("crm_lead.id"))
     campaign_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("linkedin_campaign.id"))
+    assigned_profile_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("linkedin_linkedinprofile.id"), nullable=True,
+    )
     state: Mapped[str] = mapped_column(String(20), default="Qualified")
     outcome: Mapped[str] = mapped_column(String(20), default="")
     reason: Mapped[str] = mapped_column(Text, default="")
@@ -211,6 +226,7 @@ class Deal(Base):
 
     lead: Mapped[Lead] = relationship()
     campaign: Mapped[Campaign] = relationship()
+    assigned_profile: Mapped[LinkedInProfile | None] = relationship()
 
     def __str__(self) -> str:
         lead_str = str(self.lead) if self.lead_id else "?"

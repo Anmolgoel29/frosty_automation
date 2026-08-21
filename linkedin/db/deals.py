@@ -7,6 +7,10 @@ from linkedin.enums import ProfileState
 
 logger = logging.getLogger(__name__)
 
+# Entering one of these means the account has actually touched the person on
+# LinkedIn, so it owns the lead from here on (see pipeline/allocation.py).
+_CLAIMING_STATES = (ProfileState.PENDING, ProfileState.CONNECTED)
+
 _STATE_LOG_STYLE = {
     ProfileState.QUALIFIED: ("QUALIFIED", "green", []),
     ProfileState.READY_TO_CONNECT: ("READY_TO_CONNECT", "yellow", ["bold"]),
@@ -43,14 +47,21 @@ def _deal_to_profile_dict(deal) -> dict:
     return base
 
 
-def _deals_at_state(session, state: ProfileState) -> list:
-    """Return profile dicts for all Deals at the given state in this campaign."""
+def _deals_at_state(session, state: ProfileState, *, owned_only: bool = False) -> list:
+    """Return profile dicts for all Deals at the given state in this campaign.
+
+    ``owned_only`` narrows the result to the leads this session's LinkedIn
+    account has been allocated — used for every state past the round-robin
+    hand-off, so two accounts never work the same lead.
+    """
     from crm.models import Deal
 
     qs = Deal.objects.filter(
         state=state,
         campaign=session.campaign,
     ).select_related("lead")
+    if owned_only:
+        qs = qs.filter(assigned_profile=session.linkedin_profile)
     return [_deal_to_profile_dict(d) for d in qs]
 
 
@@ -98,6 +109,16 @@ def set_profile_state(session, public_identifier: str, new_state: str, reason: s
 
     deal.state = ps
 
+    # Reaching out claims the lead. Normally allocation already stamped the
+    # owner before the connect task ran; this catches the leftovers — a lead
+    # we discover is already connected or invited on this account, without
+    # ever passing through the ready pool.
+    if ps in _CLAIMING_STATES and deal.assigned_profile_id is None:
+        deal.assigned_profile = session.linkedin_profile
+        logger.info(
+            "%s claimed by %s", public_identifier, session.linkedin_profile.linkedin_username,
+        )
+
     if reason:
         deal.reason = reason
     if outcome:
@@ -119,11 +140,13 @@ def set_profile_state(session, public_identifier: str, new_state: str, reason: s
 
 
 def get_qualified_profiles(session) -> list:
+    """Campaign-wide — qualification is shared work, before the hand-off."""
     return _deals_at_state(session, ProfileState.QUALIFIED)
 
 
 def get_ready_to_connect_profiles(session) -> list:
-    return _deals_at_state(session, ProfileState.READY_TO_CONNECT)
+    """Only the leads allocated to this account (see pipeline/allocation.py)."""
+    return _deals_at_state(session, ProfileState.READY_TO_CONNECT, owned_only=True)
 
 
 def get_profile_dict_for_public_id(session, public_id: str) -> dict | None:

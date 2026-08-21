@@ -28,6 +28,18 @@ class Deal(models.Model):
     campaign = models.ForeignKey(
         "linkedin.Campaign", on_delete=models.CASCADE, related_name="deals",
     )
+    # The LinkedIn account that owns this lead. Null while the deal is still
+    # in the campaign-wide pool (search → qualification); stamped when the
+    # lead is dealt out round-robin at connect time, and never moved
+    # afterwards — the account that sent the invite is the only one that can
+    # see the accepted connection and the conversation.
+    assigned_profile = models.ForeignKey(
+        "linkedin.LinkedInProfile",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="deals",
+    )
     state = models.CharField(
         max_length=20,
         choices=[(s.value, s.value) for s in ProfileState],

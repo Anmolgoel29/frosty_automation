@@ -55,21 +55,26 @@ def handle_connect(task, session, qualifiers):
     cfg = CAMPAIGN_CONFIG
     campaign = session.campaign
     campaign_id = campaign.pk
+    # The LinkedIn account running this task — its own connect loop, its own
+    # rate limits, and the owner of whatever lead it reaches out to.
+    account = session.linkedin_profile
     strategy = strategy_for(campaign, qualifiers)
 
     def _reschedule():
         elapsed = (timezone.now() - task.started_at).total_seconds() if task.started_at else 0
-        enqueue_connect(campaign_id, delay_seconds=strategy.compute_delay(elapsed))
+        enqueue_connect(campaign_id, account, delay_seconds=strategy.compute_delay(elapsed))
 
     # --- Rate limit check ---
-    if not session.linkedin_profile.can_execute(ActionLog.ActionType.CONNECT):
-        enqueue_connect(campaign_id, delay_seconds=seconds_until_tomorrow())
+    if not account.can_execute(ActionLog.ActionType.CONNECT):
+        enqueue_connect(campaign_id, account, delay_seconds=seconds_until_tomorrow())
         return
 
     # --- Get candidate ---
     candidate = strategy.find_candidate(session)
     if candidate is None:
-        enqueue_connect(campaign_id, delay_seconds=cfg["connect_no_candidate_delay_seconds"])
+        enqueue_connect(
+            campaign_id, account, delay_seconds=cfg["connect_no_candidate_delay_seconds"],
+        )
         return
 
     public_id = candidate["public_identifier"]
@@ -87,7 +92,10 @@ def handle_connect(task, session, qualifiers):
     ).first()
     reason = deal.reason if deal else ""
     stats = strategy.qualifier.explain(candidate, session) if strategy.qualifier else ""
-    logger.info("[%s] %s", campaign, colored("\u25b6 connect", "cyan", attrs=["bold"]))
+    logger.info(
+        "[%s] %s as %s",
+        campaign, colored("\u25b6 connect", "cyan", attrs=["bold"]), account.linkedin_username,
+    )
     logger.info("[%s] %s (%s) — %s", campaign, public_id, stats, reason or "")
 
     try:
@@ -116,14 +124,12 @@ def handle_connect(task, session, qualifiers):
                 logger.debug("%s: connect attempt %d/%d — no button found", public_id, attempts, MAX_CONNECT_ATTEMPTS)
         else:
             set_profile_state(session, public_id, new_state.value)
-            session.linkedin_profile.record_action(
-                ActionLog.ActionType.CONNECT, session.campaign,
-            )
+            account.record_action(ActionLog.ActionType.CONNECT, session.campaign)
 
     except ReachedConnectionLimit as e:
         logger.warning("Rate limited: %s", e)
-        session.linkedin_profile.mark_exhausted(ActionLog.ActionType.CONNECT)
-        enqueue_connect(campaign_id, delay_seconds=seconds_until_tomorrow())
+        account.mark_exhausted(ActionLog.ActionType.CONNECT)
+        enqueue_connect(campaign_id, account, delay_seconds=seconds_until_tomorrow())
         return
     except ProfileInaccessibleError as e:
         logger.warning("Profile inaccessible — marking FAILED: %s", e)

@@ -76,15 +76,19 @@ def handle_follow_up(task, session, qualifiers):
     payload = task.payload
     public_id = payload["public_id"]
     campaign_id = payload["campaign_id"]
+    # The daemon routed this task to the account that owns the deal, so the
+    # conversation we're about to read and answer is on this account.
+    account = session.linkedin_profile
 
     logger.info(
-        "[%s] %s %s",
-        session.campaign, colored("\u25b6 follow_up", "green", attrs=["bold"]), public_id,
+        "[%s] %s %s as %s",
+        session.campaign, colored("\u25b6 follow_up", "green", attrs=["bold"]),
+        public_id, account.linkedin_username,
     )
 
     # Rate limit check
-    if not session.linkedin_profile.can_execute(ActionLog.ActionType.FOLLOW_UP):
-        enqueue_follow_up(campaign_id, public_id, delay_seconds=3600)
+    if not account.can_execute(ActionLog.ActionType.FOLLOW_UP):
+        enqueue_follow_up(campaign_id, public_id, account, delay_seconds=3600)
         return
 
     deal = (
@@ -116,7 +120,7 @@ def handle_follow_up(task, session, qualifiers):
 
     if _too_soon_to_nudge(deal, unanswered):
         logger.info("[%s] follow_up %s: too soon to nudge — re-enqueuing", session.campaign, public_id)
-        enqueue_follow_up(campaign_id, public_id, delay_seconds=24 * 3600)
+        enqueue_follow_up(campaign_id, public_id, account, delay_seconds=24 * 3600)
         return
 
     materialize_profile_summary_if_missing(deal, session)
@@ -131,14 +135,16 @@ def handle_follow_up(task, session, qualifiers):
             set_profile_state(session, public_id, ProfileState.QUALIFIED.value)
             logger.warning("follow_up for %s: send failed — moving to QUALIFIED for re-connection", public_id)
             return
-        session.linkedin_profile.record_action(
-            ActionLog.ActionType.FOLLOW_UP, session.campaign,
+        account.record_action(ActionLog.ActionType.FOLLOW_UP, session.campaign)
+        enqueue_follow_up(
+            campaign_id, public_id, account, delay_seconds=decision.follow_up_hours * 3600,
         )
-        enqueue_follow_up(campaign_id, public_id, delay_seconds=decision.follow_up_hours * 3600)
 
     elif decision.action == "mark_completed":
         set_profile_state(session, public_id, ProfileState.COMPLETED.value, outcome=decision.outcome)
         logger.info("[%s] follow_up completed for %s: outcome=%s", session.campaign, public_id, decision.outcome)
 
     elif decision.action == "wait":
-        enqueue_follow_up(campaign_id, public_id, delay_seconds=decision.follow_up_hours * 3600)
+        enqueue_follow_up(
+            campaign_id, public_id, account, delay_seconds=decision.follow_up_hours * 3600,
+        )

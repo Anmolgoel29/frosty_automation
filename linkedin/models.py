@@ -83,6 +83,22 @@ class Campaign(models.Model):
     action_fraction = models.FloatField(default=0.2)
     seed_public_ids = models.JSONField(default=list, blank=True)
     model_blob = models.BinaryField(null=True, blank=True)
+    # Round-robin pointer into active_profiles(), advanced by
+    # linkedin/pipeline/allocation.py as ready leads are dealt out.
+    assignment_cursor = models.PositiveIntegerField(default=0)
+
+    def active_profiles(self) -> list["LinkedInProfile"]:
+        """Active LinkedIn accounts running this campaign, in a stable order.
+
+        Membership is the ``users`` M2M: a LinkedIn account belongs to a
+        campaign when its Django user does. Order is by pk so the
+        round-robin rotation is reproducible across daemon restarts.
+        """
+        return list(
+            LinkedInProfile.objects.filter(active=True, user__campaigns=self)
+            .select_related("user")
+            .order_by("pk")
+        )
 
     def __str__(self):
         return self.name
@@ -92,10 +108,14 @@ class Campaign(models.Model):
 
 
 class LinkedInProfile(models.Model):
-    user = models.OneToOneField(
+    # A plain FK, not one-to-one: several LinkedIn accounts can sit under the
+    # same Django user, which is how you run one campaign from several
+    # accounts — campaign membership is carried by ``Campaign.users``, so
+    # every account under that user joins the campaigns the user is on.
+    user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="linkedin_profile",
+        related_name="linkedin_profiles",
     )
     self_lead = models.ForeignKey(
         "crm.Lead",
@@ -252,6 +272,15 @@ class Task(models.Model):
         FAILED = "failed"
 
     task_type = models.CharField(max_length=20, choices=TaskType.choices)
+    # The LinkedIn account that must execute this task. Connect tasks are
+    # seeded per (campaign, account); check_pending/follow_up inherit the
+    # owner of the Deal they act on, so a lead is only ever touched by the
+    # account that sent its connection request.
+    linkedin_profile = models.ForeignKey(
+        LinkedInProfile,
+        on_delete=models.CASCADE,
+        related_name="tasks",
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     scheduled_at = models.DateTimeField()
     payload = models.JSONField(default=dict)

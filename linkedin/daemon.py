@@ -121,6 +121,49 @@ class _HumanRhythmBreak:
         self._new_burst()
 
 
+def sync_sessions(sessions: dict) -> None:
+    """Refresh the account roster in place, from the DB.
+
+    Accounts are added and deactivated in the admin panel while the daemon is
+    running, so the roster is re-read on every idle cycle rather than frozen
+    at startup: a LinkedIn account added there starts working within a minute
+    instead of on the next restart. Mutates ``sessions`` so the daemon loop
+    and everything holding the same dict see the change.
+    """
+    from linkedin.browser.registry import get_active_profiles, get_or_create_session
+
+    live = {}
+    for profile in get_active_profiles():
+        session = get_or_create_session(profile)
+        # Re-bind the row (limits, active flag) and drop the cached campaign
+        # list — membership may have changed since this session was built.
+        session.linkedin_profile = profile
+        session.__dict__.pop("campaigns", None)
+        if not session.campaigns:
+            continue
+        if session.campaign is None or session.campaign not in session.campaigns:
+            session.campaign = next(
+                (c for c in session.campaigns if not c.is_freemium), None,
+            ) or session.campaigns[0]
+        live[profile.pk] = session
+
+    for pk in sorted(set(live) - set(sessions)):
+        logger.info(
+            colored("Account added", "green") + " — %s joins the rotation",
+            live[pk].linkedin_profile.linkedin_username,
+        )
+    for pk in sorted(set(sessions) - set(live)):
+        dropped = sessions[pk]
+        logger.info(
+            colored("Account removed", "yellow") + " — %s leaves the rotation",
+            dropped.linkedin_profile.linkedin_username,
+        )
+        dropped.close()
+
+    sessions.clear()
+    sessions.update(live)
+
+
 def _build_qualifiers(campaigns, cfg):
     """Create a qualifier for every campaign, keyed by campaign PK."""
     from crm.models import Lead
@@ -178,22 +221,31 @@ def seconds_until_active() -> float:
 # ------------------------------------------------------------------
 
 
-def run_daemon(session):
+def run_daemon(sessions: dict):
+    """Task queue worker driving one browser session per LinkedIn account.
+
+    ``sessions`` maps LinkedInProfile pk → AccountSession. Tasks carry the
+    account that must execute them, so the loop is still strictly
+    single-threaded — one account acts at a time — while leads stay bound to
+    the account that reached out to them.
+    """
     from linkedin.models import Campaign
+    from linkedin.tasks.scheduler import campaigns_in
 
     cfg = CAMPAIGN_CONFIG
 
-    qualifiers = _build_qualifiers(session.campaigns, cfg)
-
-    campaigns = session.campaigns
+    campaigns = campaigns_in(sessions)
     if not campaigns:
         logger.error("No campaigns found — cannot start daemon")
         return
 
+    qualifiers = _build_qualifiers(campaigns, cfg)
+
     logger.info(
         colored("Daemon started", "green", attrs=["bold"])
-        + " — %d campaigns, task queue worker",
-        len(campaigns),
+        + " — %d campaigns, %d LinkedIn account(s): %s",
+        len(campaigns), len(sessions),
+        ", ".join(s.linkedin_profile.linkedin_username for s in sessions.values()),
     )
 
     heartbeat = Heartbeat()
@@ -214,11 +266,23 @@ def run_daemon(session):
 
         task = Task.objects.claim_next()
         if task is None:
-            # Nothing ready — reconcile the queue from CRM state. Any deal
-            # stuck without a pending task (e.g. because a prior handler
-            # crashed) gets a fresh task here; this is the retry mechanism.
+            # Nothing ready — pick up any account added or deactivated in the
+            # admin, then reconcile the queue from CRM state. Any deal stuck
+            # without a pending task (e.g. because a prior handler crashed)
+            # gets a fresh task here; this is the retry mechanism.
             from linkedin.tasks.scheduler import reconcile
-            reconcile(session)
+            sync_sessions(sessions)
+            if not sessions:
+                logger.error("No usable LinkedIn accounts left — sleeping 1h")
+                sleep_with_heartbeat(3600, heartbeat, "no accounts")
+                rhythm.reset()
+                continue
+            # A newly-attached campaign needs its own GP model; existing
+            # qualifiers are left alone so their in-memory state survives.
+            for campaign in campaigns_in(sessions):
+                if campaign.pk not in qualifiers:
+                    qualifiers.update(_build_qualifiers([campaign], cfg))
+            reconcile(sessions)
 
             wait = Task.objects.seconds_to_next()
             if wait is None:
@@ -244,6 +308,19 @@ def run_daemon(session):
         campaign = Campaign.objects.filter(pk=task.payload.get("campaign_id")).first()
         if not campaign:
             logger.error("Campaign %s not found", task.payload.get("campaign_id"))
+            task.mark_failed()
+            continue
+
+        # Route to the account that owns the work. A task whose account is no
+        # longer running (deactivated, detached from every campaign) can't be
+        # picked up by anyone else — the invite and the thread live on that
+        # account — so it fails and stays failed until the account is back.
+        session = sessions.get(task.linkedin_profile_id)
+        if session is None:
+            logger.error(
+                "Task %s targets LinkedIn account #%s, which this daemon isn't running",
+                task, task.linkedin_profile_id,
+            )
             task.mark_failed()
             continue
 

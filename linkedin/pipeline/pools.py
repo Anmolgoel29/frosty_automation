@@ -5,12 +5,17 @@ Three generators chain via next(upstream, None):
 
     find_candidate() = next(ready_source, None)
                             |
-                  ready_source  <- pulls from qualify_source
+                  ready_source  <- this account's allocated leads only;
+                            |      deals out the un-owned ready pool round-robin
+                            |      (pipeline/allocation.py) when it runs dry
                             |
                  qualify_source  <- pulls from search_source
                   (keeps searching until P > 0.5 candidates exist in exploit mode)
                             |
                   search_source  <- yields keywords (never truly exhausts)
+
+Only ready_source is per-account: search, enrichment and qualification all
+feed one campaign-wide pool, whichever account happens to drive them.
 
 Each qualify_source iteration produces exactly one label, which shifts the GP
 model — preventing the infinite-search-without-qualifying bug.
@@ -24,6 +29,7 @@ import numpy as np
 
 from linkedin.conf import CAMPAIGN_CONFIG
 from linkedin.ml.qualifier import BayesianQualifier
+from linkedin.pipeline.allocation import allocate_ready_deals
 from linkedin.pipeline.qualify import fetch_qualification_candidates, run_qualification
 from linkedin.pipeline.ready_pool import find_ready_candidate, promote_to_ready
 from linkedin.pipeline.search import run_search
@@ -127,7 +133,15 @@ def qualify_source(session, qualifier: BayesianQualifier) -> Generator[str, None
 
 
 def ready_source(session, qualifier: BayesianQualifier, threshold: float | None = None) -> Generator[dict, None, None]:
-    """Yield ready-to-connect candidates, pulling from qualify when needed."""
+    """Yield ready-to-connect candidates *owned by this account*.
+
+    Everything upstream of this generator is shared across the campaign's
+    accounts; ``find_ready_candidate`` is the first step that only sees this
+    account's own leads. When it comes up empty we deal out whatever is
+    sitting un-owned in the ready pool — the rotation may well hand those
+    leads to the other accounts, in which case we keep pulling upstream
+    until our turn comes round.
+    """
     if threshold is None:
         threshold = CAMPAIGN_CONFIG["min_ready_to_connect_prob"]
     qualify = qualify_source(session, qualifier)
@@ -136,6 +150,9 @@ def ready_source(session, qualifier: BayesianQualifier, threshold: float | None 
         candidate = find_ready_candidate(session, qualifier)
         if candidate is not None:
             yield candidate
+            continue
+
+        if allocate_ready_deals(session.campaign) > 0:
             continue
 
         promoted = promote_to_ready(session, qualifier, threshold)

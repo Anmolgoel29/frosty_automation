@@ -18,6 +18,15 @@ def get_or_create_session(linkedin_profile) -> "AccountSession":
     return _sessions[pk]
 
 
+def get_active_profiles() -> list:
+    """All active LinkedInProfiles, ordered by pk (stable rotation order)."""
+    from linkedin.models import LinkedInProfile
+
+    return list(
+        LinkedInProfile.objects.filter(active=True).select_related("user").order_by("pk")
+    )
+
+
 def get_first_active_profile():
     """Return the first active LinkedInProfile, or None."""
     from linkedin.models import LinkedInProfile

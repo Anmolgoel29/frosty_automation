@@ -142,8 +142,12 @@ register(ModelAdmin(
     slug="linkedinprofile",
     label="LinkedIn Profile",
     list_display=["user", "linkedin_username", "active", "legal_accepted"],
-    list_filter=["active"],
-    raw_id_fields=["user", "self_lead"],
+    list_filter=["active", "user"],
+    # `user` is a dropdown, not a raw id: adding a second LinkedIn account to
+    # a campaign means picking the user that campaign already belongs to, and
+    # there is no user admin to look ids up in. `self_lead` stays a raw id —
+    # crm_lead is far too large for a select.
+    raw_id_fields=["self_lead"],
 ))
 
 register(ModelAdmin(
@@ -172,9 +176,9 @@ register(ModelAdmin(
     model=Task,
     slug="task",
     label="Task",
-    list_display=["task_type", "status", "scheduled_at", "payload", "created_at"],
-    list_filter=["task_type", "status"],
-    readonly_fields=["task_type", "status", "scheduled_at", "payload", "created_at", "started_at", "completed_at"],
+    list_display=["task_type", "linkedin_profile", "status", "scheduled_at", "payload", "created_at"],
+    list_filter=["task_type", "status", "linkedin_profile"],
+    readonly_fields=["task_type", "linkedin_profile", "status", "scheduled_at", "payload", "created_at", "started_at", "completed_at"],
     date_hierarchy="scheduled_at",
     choices={"task_type": TaskType, "status": TaskStatus},
     can_add=False,
@@ -212,8 +216,8 @@ register(ModelAdmin(
     model=Deal,
     slug="deal",
     label="Deal",
-    list_display=["lead", "campaign", "state", "outcome", "connect_attempts"],
-    list_filter=["state", "outcome", "campaign"],
+    list_display=["lead", "campaign", "assigned_profile", "state", "outcome", "connect_attempts"],
+    list_filter=["state", "outcome", "campaign", "assigned_profile"],
     search_fields=["lead__public_identifier", "reason"],
     exclude_fields=["update_date"],
     choices={"state": DealState, "outcome": Outcome},
