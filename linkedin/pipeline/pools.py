@@ -30,7 +30,11 @@ import numpy as np
 from linkedin.conf import CAMPAIGN_CONFIG
 from linkedin.ml.qualifier import BayesianQualifier
 from linkedin.pipeline.allocation import allocate_ready_deals
-from linkedin.pipeline.qualify import fetch_qualification_candidates, run_qualification
+from linkedin.pipeline.qualify import (
+    fetch_qualification_candidates,
+    has_qualification_candidates,
+    run_qualification,
+)
 from linkedin.pipeline.ready_pool import find_ready_candidate, promote_to_ready
 from linkedin.pipeline.search import run_search
 
@@ -109,22 +113,26 @@ def qualify_source(session, qualifier: BayesianQualifier) -> Generator[str, None
     search = search_source(session)
 
     while True:
-        candidates = fetch_qualification_candidates(session)
-
-        # If no candidates at all, search to bring some in
-        if not candidates:
+        # If no candidates at all, search to bring some in. An EXISTS check
+        # answers this without dragging the pool's embeddings over the wire.
+        if not has_qualification_candidates(session):
             if next(search, None) is None:
                 return
-            candidates = fetch_qualification_candidates(session)
-            if not candidates:
+            if not has_qualification_candidates(session):
                 return
 
-        # In exploit mode with no P > 0.5 candidates, keep searching
-        # until the positive pool is non-empty or search is exhausted.
-        while _needs_search(qualifier, candidates):
-            if next(search, None) is None:
-                break
+        # Only exploit mode can decide a search is needed — `_needs_search`
+        # returns False outright on cold start and in explore mode, so don't
+        # load the pool just to be told that.
+        n_neg, n_pos = qualifier.class_counts
+        if n_neg > n_pos:
             candidates = fetch_qualification_candidates(session)
+            # In exploit mode with no P > 0.5 candidates, keep searching
+            # until the positive pool is non-empty or search is exhausted.
+            while _needs_search(qualifier, candidates):
+                if next(search, None) is None:
+                    break
+                candidates = fetch_qualification_candidates(session)
 
         result = run_qualification(session, qualifier)
         if result is None:

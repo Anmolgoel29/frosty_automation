@@ -150,18 +150,51 @@ class LinkedInProfile(models.Model):
 
         daily_field, weekly_field = _RATE_LIMIT_FIELDS[action_type]
 
+        # Deliberately re-read: a limit edited in the admin takes effect on the
+        # very next check. This runs once per rate-limited task, not in a loop,
+        # so it isn't worth trading that guarantee for one query.
         self.refresh_from_db(fields=[daily_field] + ([weekly_field] if weekly_field else []))
 
         daily_limit = getattr(self, daily_field)
-        if daily_limit is not None and self._daily_count(action_type) >= daily_limit:
+        weekly_limit = getattr(self, weekly_field) if weekly_field else None
+
+        daily, weekly = self._action_counts(action_type, need_weekly=weekly_limit is not None)
+
+        if daily_limit is not None and daily >= daily_limit:
+            return False
+        if weekly_limit is not None and weekly >= weekly_limit:
             return False
 
-        if weekly_field:
-            weekly_limit = getattr(self, weekly_field)
-            if weekly_limit is not None and self._weekly_count(action_type) >= weekly_limit:
-                return False
-
         return True
+
+    def _action_counts(self, action_type: str, *, need_weekly: bool) -> tuple[int, int]:
+        """Today's and this week's action counts, in a single query.
+
+        The daily window sits inside the weekly one, so both come from one
+        scan with a conditional aggregate — this runs before every rate-limited
+        task, so two separate COUNTs were pure duplicated work.
+        """
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if not need_weekly:
+            return (
+                ActionLog.objects.filter(
+                    linkedin_profile=self, action_type=action_type,
+                    created_at__gte=today_start,
+                ).count(),
+                0,
+            )
+
+        monday = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0,
+        )
+        result = ActionLog.objects.filter(
+            linkedin_profile=self, action_type=action_type, created_at__gte=monday,
+        ).aggregate(
+            weekly=models.Count("pk"),
+            daily=models.Count("pk", filter=models.Q(created_at__gte=today_start)),
+        )
+        return result["daily"] or 0, result["weekly"] or 0
 
     def record_action(self, action_type: str, campaign: Campaign) -> None:
         """Persist a rate-limited action."""
@@ -173,23 +206,6 @@ class LinkedInProfile(models.Model):
         """Mark the action type as externally exhausted for today."""
         self._exhausted[action_type] = date.today()
         logger.warning("Rate limit: %s externally exhausted for today", action_type)
-
-    def _daily_count(self, action_type: str) -> int:
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        return ActionLog.objects.filter(
-            linkedin_profile=self, action_type=action_type,
-            created_at__gte=today_start,
-        ).count()
-
-    def _weekly_count(self, action_type: str) -> int:
-        now = timezone.now()
-        monday = (now - timedelta(days=now.weekday())).replace(
-            hour=0, minute=0, second=0, microsecond=0,
-        )
-        return ActionLog.objects.filter(
-            linkedin_profile=self, action_type=action_type,
-            created_at__gte=monday,
-        ).count()
 
     def __str__(self):
         return f"{self.user.username} ({self.linkedin_username})"

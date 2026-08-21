@@ -34,23 +34,22 @@ def promote_to_ready(session, qualifier: BayesianQualifier, threshold: float) ->
 
 
 def _promote_to_ready_locked(session, qualifier: BayesianQualifier, threshold: float) -> int:
-    from crm.models import Lead
+    from linkedin.ml.qualifier import _load_profile_embeddings
 
     profiles = get_qualified_profiles(session)
     if not profiles:
         return 0
 
-    embeddings = []
-    valid = []
-    for p in profiles:
-        lead = Lead.objects.filter(pk=p.get("lead_id")).first()
-        emb = lead.get_embedding(session) if lead else None
-        if emb is not None:
-            embeddings.append(emb)
-            valid.append(p)
-
-    if not valid:
+    # Bulk-loaded: this runs on every backfill iteration over the whole
+    # QUALIFIED pool, so a query per profile made it scale with the pool.
+    # skip_missing keeps un-embedded leads out of the GP call instead of
+    # aborting the pass.
+    scored = _load_profile_embeddings(profiles, session, skip_missing=True)
+    if not scored:
         return 0
+
+    valid = [p for p, _ in scored]
+    embeddings = [emb for _, emb in scored]
 
     X = np.array(embeddings, dtype=np.float64)
     probs = qualifier.predict_probs(X)

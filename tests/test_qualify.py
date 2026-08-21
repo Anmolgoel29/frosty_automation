@@ -31,19 +31,14 @@ def _create_lead_with_embedding(lead_id, public_id):
     )
 
 
-def _fake_leads(lead_id=1, public_id="alice"):
-    """Return a list matching get_leads_for_qualification output."""
-    return [{"lead_id": lead_id, "public_identifier": public_id, "url": "", "profile": {}}]
-
-
 class TestQualifyAutoDecisions:
     def test_always_calls_llm(self, db):
         qualifier = _make_trained_qualifier()
         session = MagicMock()
-        _create_lead_with_embedding(1, "alice")
+        lead = _create_lead_with_embedding(1, "alice")
 
         with (
-            patch("linkedin.db.leads.get_leads_for_qualification", return_value=_fake_leads()),
+            patch("linkedin.pipeline.qualify.fetch_qualification_candidates", return_value=[lead]),
             patch("linkedin.pipeline.qualify._fetch_profile_text", return_value="engineer at acme"),
             patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(1, "Good fit")) as mock_llm,
             patch.object(qualifier, "update"),
@@ -55,10 +50,10 @@ class TestQualifyAutoDecisions:
     def test_llm_on_cold_start(self, db):
         qualifier = BayesianQualifier(seed=42)
         session = MagicMock()
-        _create_lead_with_embedding(1, "alice")
+        lead = _create_lead_with_embedding(1, "alice")
 
         with (
-            patch("linkedin.db.leads.get_leads_for_qualification", return_value=_fake_leads()),
+            patch("linkedin.pipeline.qualify.fetch_qualification_candidates", return_value=[lead]),
             patch("linkedin.pipeline.qualify._fetch_profile_text", return_value="engineer at acme"),
             patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(0, "Bad fit")) as mock_llm,
             patch.object(qualifier, "update"),
@@ -70,10 +65,10 @@ class TestQualifyAutoDecisions:
     def test_disqualify_on_promote_failure(self, db):
         qualifier = _make_trained_qualifier()
         session = MagicMock()
-        _create_lead_with_embedding(1, "alice")
+        lead = _create_lead_with_embedding(1, "alice")
 
         with (
-            patch("linkedin.db.leads.get_leads_for_qualification", return_value=_fake_leads()),
+            patch("linkedin.pipeline.qualify.fetch_qualification_candidates", return_value=[lead]),
             patch("linkedin.pipeline.qualify._fetch_profile_text", return_value="engineer at acme"),
             patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(1, "Good fit")),
             patch.object(qualifier, "update"),

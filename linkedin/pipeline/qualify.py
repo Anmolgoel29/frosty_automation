@@ -12,31 +12,54 @@ from linkedin.ml.qualifier import BayesianQualifier
 logger = logging.getLogger(__name__)
 
 
-def fetch_qualification_candidates(session):
-    """Return Lead rows (with embeddings) for leads awaiting qualification."""
+# The GP only needs a representative sample of the unlabelled pool to pick
+# its next question from; scoring every lead ever discovered is wasted work
+# that grows without bound as the campaign runs.
+MAX_QUALIFICATION_CANDIDATES = 300
+
+
+def has_qualification_candidates(session) -> bool:
+    """Cheap EXISTS check — "is there anything to qualify at all?".
+
+    Callers that only need a yes/no shouldn't pull the pool's embedding
+    blobs across the wire to find out.
+    """
     from crm.models import Lead
-    from linkedin.db.leads import get_leads_for_qualification
 
-    leads = get_leads_for_qualification(session)
-    if not leads:
-        return []
+    return (
+        Lead.objects.filter(disqualified=False)
+        .exclude(deal__campaign=session.campaign)
+        .exists()
+    )
 
-    lead_ids = {ld["lead_id"] for ld in leads}
+
+def fetch_qualification_candidates(session):
+    """Return Lead rows (with embeddings) for leads awaiting qualification.
+
+    One query, capped: the previous version read every unlabelled lead twice
+    (once as dicts, once as full rows including the embedding blob) on every
+    call, and ``ready_source`` calls this several times per iteration.
+    """
+    from crm.models import Lead
 
     candidates = list(
-        Lead.objects.filter(pk__in=lead_ids, embedding__isnull=False)
-        .order_by("creation_date")
+        Lead.objects.filter(disqualified=False, embedding__isnull=False)
+        .exclude(deal__campaign=session.campaign)
+        .order_by("creation_date")[:MAX_QUALIFICATION_CANDIDATES]
     )
     if candidates:
         return candidates
 
-    # Robustness fallback: embed any lead that was missed at discovery time
-    for ld in leads:
-        lead = Lead.objects.filter(pk=ld["lead_id"]).first()
-        if not lead or lead.embedding is not None:
-            continue
-        if lead.get_embedding(session) is not None:
-            return [lead]
+    # Nothing embedded is waiting — fall back to embedding one lead that was
+    # missed at discovery time, so a pool of un-embedded seeds still moves.
+    stale = (
+        Lead.objects.filter(disqualified=False, embedding__isnull=True)
+        .exclude(deal__campaign=session.campaign)
+        .order_by("creation_date")
+        .first()
+    )
+    if stale and stale.get_embedding(session) is not None:
+        return [stale]
 
     return []
 

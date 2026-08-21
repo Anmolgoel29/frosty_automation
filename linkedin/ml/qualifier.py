@@ -113,11 +113,30 @@ def _load_profile_embeddings(profiles: list, session, *, skip_missing: bool = Fa
     """Load embeddings for a list of profile dicts.
 
     Returns list of (profile, embedding) pairs.
+
+    One bulk read for the whole batch — this is called on every connect task
+    with the full ready pool, so a query per profile made ranking cost scale
+    with the pool. Only leads that genuinely have no stored embedding fall
+    back to the lazy per-lead path (which scrapes), so the common case where
+    everything was embedded at discovery costs exactly one query.
     """
     from crm.models import Lead
 
+    lead_ids = [p.get("lead_id") for p in profiles if p.get("lead_id") is not None]
+    stored = dict(
+        Lead.objects.filter(pk__in=lead_ids, embedding__isnull=False)
+        .values_list("pk", "embedding")
+    )
+
     result = []
     for p in profiles:
+        raw = stored.get(p.get("lead_id"))
+        if raw is not None:
+            result.append((p, np.frombuffer(bytes(raw), dtype=np.float32).copy()))
+            continue
+
+        # No embedding on the row — fall back to the lazy accessor, which
+        # scrapes and persists it.
         lead = Lead.objects.filter(pk=p.get("lead_id")).first()
         emb = lead.get_embedding(session) if lead else None
         if emb is None:

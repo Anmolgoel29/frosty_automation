@@ -124,7 +124,18 @@ def set_profile_state(session, public_identifier: str, new_state: str, reason: s
     if outcome:
         deal.outcome = outcome
 
-    deal.save()
+    # Only the columns that actually changed: a bare save() rewrites every
+    # field, and Deal carries two JSON fact lists (profile_summary,
+    # chat_summary) that can be kilobytes each — re-sending them on every
+    # state transition is a lot of wire traffic for nothing.
+    update_fields = ["state", "update_date"]
+    if reason:
+        update_fields.append("reason")
+    if outcome:
+        update_fields.append("outcome")
+    if deal.assigned_profile_id is not None:
+        update_fields.append("assigned_profile")
+    deal.save(update_fields=update_fields)
 
     label, color, attrs = _STATE_LOG_STYLE.get(ps, ("ERROR", "red", ["bold"]))
     suffix = f" ({reason})" if reason else ""

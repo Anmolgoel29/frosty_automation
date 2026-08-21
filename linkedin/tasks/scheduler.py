@@ -247,25 +247,48 @@ def campaigns_in(sessions: dict) -> list:
     return [by_pk[pk] for pk in sorted(by_pk)]
 
 
-def _seed_connect_tasks(campaign, sessions: dict) -> None:
+def _live_task_keys(campaign_id: int) -> set[tuple]:
+    """Every pending-or-running task for this campaign, as dedup keys.
+
+    Reconcile runs on a timer forever, so asking the DB "does a task exist?"
+    once per deal is the single largest source of query volume in the daemon
+    (it grew linearly with the active pipeline). One query up front answers
+    all of those lookups in memory instead.
+    """
+    rows = Task.objects.filter(
+        status__in=(Task.Status.PENDING, Task.Status.RUNNING),
+        payload__campaign_id=campaign_id,
+    ).values_list("task_type", "linkedin_profile_id", "payload")
+    return {
+        (task_type, profile_id, (payload or {}).get("public_id", ""))
+        for task_type, profile_id, payload in rows
+    }
+
+
+def _seed_connect_tasks(campaign, sessions: dict, live_keys: set[tuple], new_tasks: list) -> None:
     """Give every running account on this campaign its own connect task.
 
-    An account whose connect task is mid-execution is skipped — it will
-    reschedule itself when it finishes.
+    An account whose connect task is pending or mid-execution is skipped — it
+    will reschedule itself when it finishes. Appends to *new_tasks* for one
+    bulk insert at the end of the reconcile pass.
     """
     for profile in campaign.active_profiles():
         if profile.pk not in sessions:
             continue
-        if has_live_task(Task.TaskType.CONNECT, profile, campaign_id=campaign.pk):
+        key = (Task.TaskType.CONNECT, profile.pk, "")
+        if key in live_keys:
             continue
-        enqueue_connect(campaign.pk, profile, delay_seconds=0)
+        live_keys.add(key)
+        new_tasks.append(Task(
+            task_type=Task.TaskType.CONNECT,
+            linkedin_profile=profile,
+            scheduled_at=timezone.now(),
+            payload={"campaign_id": campaign.pk},
+        ))
 
 
-def _seed_deal_tasks(campaign, sessions: dict) -> None:
+def _seed_deal_tasks(campaign, sessions: dict, live_keys: set[tuple], new_tasks: list) -> None:
     """Ensure every active Deal has the task its state implies.
-
-    Iterates PENDING and CONNECTED deals, letting ``on_deal_state_entered``
-    decide what to enqueue (with dedup).
 
     Deals whose lead is flagged for human takeover are excluded from
     follow_up task seeding — the human is managing that conversation and
@@ -274,35 +297,60 @@ def _seed_deal_tasks(campaign, sessions: dict) -> None:
     A deal whose owning account isn't running is left alone rather than
     handed to another account: the pending invite and the message thread
     only exist on the account that sent them.
+
+    Membership is tested against *live_keys* (one query for the whole
+    campaign) and rows are appended to *new_tasks* for a single bulk insert,
+    rather than two queries per deal.
     """
     from crm.models import Deal
 
     active_states = (ProfileState.PENDING, ProfileState.CONNECTED)
     stranded = 0
-    deals = Deal.objects.filter(
-        state__in=active_states,
-        campaign=campaign,
-        lead__human_takeover=False,
-    ).select_related("lead", "assigned_profile")
+    deals = (
+        Deal.objects.filter(
+            state__in=active_states,
+            campaign=campaign,
+            lead__human_takeover=False,
+        )
+        .select_related("lead", "assigned_profile")
+        .only(
+            "state", "backoff_hours", "assigned_profile",
+            "lead__public_identifier", "lead__human_takeover",
+        )
+    )
     for deal in deals:
-        # Skip human-takeover leads entirely — reconcile must not
-        # re-create follow_up tasks for conversations a human owns.
-        if deal.state == ProfileState.CONNECTED and deal.lead.human_takeover:
+        public_id = deal.lead.public_identifier
+        if not public_id:
             continue
         if deal.assigned_profile_id not in sessions:
             stranded += 1
             continue
-        # Don't stack a second task on one the owning account is running.
-        task_type = (
-            Task.TaskType.CHECK_PENDING if deal.state == ProfileState.PENDING
-            else Task.TaskType.FOLLOW_UP
-        )
-        if has_live_task(
-            task_type, deal.assigned_profile,
-            campaign_id=campaign.pk, public_id=deal.lead.public_identifier,
-        ):
+
+        if deal.state == ProfileState.PENDING:
+            task_type = Task.TaskType.CHECK_PENDING
+            backoff = deal.backoff_hours or CAMPAIGN_CONFIG["check_pending_recheck_after_hours"]
+            half = backoff / 2
+            delay_seconds = (half + random.uniform(0, half)) * 3600
+            payload = {
+                "campaign_id": campaign.pk,
+                "public_id": public_id,
+                "backoff_hours": backoff,
+            }
+        else:
+            task_type = Task.TaskType.FOLLOW_UP
+            delay_seconds = 10
+            payload = {"campaign_id": campaign.pk, "public_id": public_id}
+
+        key = (task_type, deal.assigned_profile_id, public_id)
+        if key in live_keys:
             continue
-        on_deal_state_entered(deal)
+        live_keys.add(key)
+        new_tasks.append(Task(
+            task_type=task_type,
+            linkedin_profile=deal.assigned_profile,
+            scheduled_at=timezone.now() + timedelta(seconds=delay_seconds),
+            payload=payload,
+        ))
 
     if stranded:
         logger.warning(
@@ -325,12 +373,22 @@ def reconcile(sessions: dict) -> None:
     """
     from linkedin.pipeline.allocation import allocate_ready_deals, reclaim_unreachable_deals
 
+    created = 0
     with _TASK_LOCK:
         for campaign in campaigns_in(sessions):
             reclaim_unreachable_deals(campaign)
             allocate_ready_deals(campaign)
-            _seed_connect_tasks(campaign, sessions)
-            _seed_deal_tasks(campaign, sessions)
 
-        pending_count = Task.objects.pending().count()
-    logger.debug("Task queue reconciled: %d pending tasks", pending_count)
+            # One read of the live queue, one write of everything missing —
+            # this runs every minute forever, so per-deal queries here are
+            # what made the daemon's DB volume grow with the pipeline.
+            live_keys = _live_task_keys(campaign.pk)
+            new_tasks: list[Task] = []
+            _seed_connect_tasks(campaign, sessions, live_keys, new_tasks)
+            _seed_deal_tasks(campaign, sessions, live_keys, new_tasks)
+            if new_tasks:
+                Task.objects.bulk_create(new_tasks)
+                created += len(new_tasks)
+
+    if created:
+        logger.info("Task queue reconciled: %d task(s) created", created)

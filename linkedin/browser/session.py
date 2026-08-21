@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 # The main LinkedIn auth cookie
 _AUTH_COOKIE_NAME = "li_at"
 
+# How often to re-read the stored cookie to check for expiry. It expires on a
+# scale of days; ensure_browser() runs many times a minute.
+COOKIE_CHECK_INTERVAL = 300
+
 
 def random_sleep(min_val, max_val):
     delay = random.uniform(min_val, max_val)
@@ -64,6 +68,9 @@ class AccountSession:
 
         # The X display this account's browser draws on, once claimed.
         self._display = None
+
+        # Last time the stored auth cookie was checked for expiry.
+        self._last_cookie_check = 0.0
 
     def ensure_display(self) -> str | None:
         """Claim this account's own X display, starting Xvfb if needed.
@@ -133,8 +140,20 @@ class AccountSession:
         start_browser_session(session=self)
 
     def _maybe_refresh_cookies(self):
-        """Re-login if the li_at auth cookie in the saved DB state is expired."""
+        """Re-login if the li_at auth cookie in the saved DB state is expired.
+
+        Rate-limited to one DB read per ``COOKIE_CHECK_INTERVAL``: this runs on
+        every ``ensure_browser()`` — which is called per profile visit, per
+        scrape, per message — and each check re-read the whole cookie JSON
+        blob. The cookie expires on a scale of days, so polling it every few
+        seconds bought nothing.
+        """
         from linkedin.browser.login import start_browser_session
+
+        now = time.monotonic()
+        if now - self._last_cookie_check < COOKIE_CHECK_INTERVAL:
+            return
+        self._last_cookie_check = now
 
         self.linkedin_profile.refresh_from_db(fields=["cookie_data"])
         cookie_data = self.linkedin_profile.cookie_data

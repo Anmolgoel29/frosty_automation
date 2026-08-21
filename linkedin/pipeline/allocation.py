@@ -66,15 +66,20 @@ def allocate_ready_deals(campaign) -> int:
         .get(pk=campaign.pk)
     )
 
+    # Group by owner so the whole rotation lands in one UPDATE per account
+    # instead of one per lead.
+    by_profile: dict[int, list[int]] = {}
     for deal in unassigned:
         profile = profiles[cursor % len(profiles)]
-        deal.assigned_profile = profile
-        deal.save(update_fields=["assigned_profile"])
+        by_profile.setdefault(profile.pk, []).append(deal.pk)
         cursor += 1
         logger.info(
             "[%s] %s allocated to %s",
             campaign, deal.lead.public_identifier, profile.linkedin_username,
         )
+
+    for profile_pk, deal_pks in by_profile.items():
+        Deal.objects.filter(pk__in=deal_pks).update(assigned_profile_id=profile_pk)
 
     cursor %= len(profiles)
     Campaign.objects.filter(pk=campaign.pk).update(assignment_cursor=cursor)

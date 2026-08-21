@@ -135,6 +135,7 @@ class TestQualifySource:
         candidates = [_make_candidate(1, np.zeros(384, dtype=np.float32))]
 
         with (
+            patch("linkedin.pipeline.pools.has_qualification_candidates", return_value=True),
             patch("linkedin.pipeline.pools.fetch_qualification_candidates", return_value=candidates),
             patch("linkedin.pipeline.pools._needs_search", return_value=False),
             patch("linkedin.pipeline.pools.run_qualification", side_effect=["alice", None]),
@@ -151,8 +152,10 @@ class TestQualifySource:
         candidates = [_make_candidate(1, np.zeros(384, dtype=np.float32))]
 
         with (
+            patch("linkedin.pipeline.pools.has_qualification_candidates", return_value=True),
             patch("linkedin.pipeline.pools.fetch_qualification_candidates", return_value=candidates),
             # Always empty — search exhausts (returns None) and loop breaks
+            patch.object(type(scorer), "class_counts", new_callable=PropertyMock, return_value=(5, 2)),
             patch("linkedin.pipeline.pools._needs_search", return_value=True),
             patch("linkedin.pipeline.pools.run_qualification", side_effect=["alice", None]),
             patch("linkedin.pipeline.pools.run_search", side_effect=["kw1", "kw2", None]) as mock_search,
@@ -175,7 +178,9 @@ class TestQualifySource:
             return call_count[0] <= 1
 
         with (
+            patch("linkedin.pipeline.pools.has_qualification_candidates", return_value=True),
             patch("linkedin.pipeline.pools.fetch_qualification_candidates", return_value=candidates),
+            patch.object(type(scorer), "class_counts", new_callable=PropertyMock, return_value=(5, 2)),
             patch("linkedin.pipeline.pools._needs_search", side_effect=pool_empty_side_effect),
             patch("linkedin.pipeline.pools.run_qualification", side_effect=["alice", None]),
             patch("linkedin.pipeline.pools.run_search", return_value="kw") as mock_search,
@@ -191,8 +196,9 @@ class TestQualifySource:
         candidates = [_make_candidate(1, np.zeros(384, dtype=np.float32))]
 
         with (
-            patch("linkedin.pipeline.pools.fetch_qualification_candidates",
-                  side_effect=[[], candidates, candidates]),
+            patch("linkedin.pipeline.pools.has_qualification_candidates",
+                  side_effect=[False, True, True, True]),
+            patch("linkedin.pipeline.pools.fetch_qualification_candidates", return_value=candidates),
             patch("linkedin.pipeline.pools._needs_search", return_value=False),
             patch("linkedin.pipeline.pools.run_qualification", side_effect=["alice", None]),
             patch("linkedin.pipeline.pools.run_search", return_value="kw1") as mock_search,
@@ -207,7 +213,7 @@ class TestQualifySource:
         scorer = BayesianQualifier(seed=42)
 
         with (
-            patch("linkedin.pipeline.pools.fetch_qualification_candidates", return_value=[]),
+            patch("linkedin.pipeline.pools.has_qualification_candidates", return_value=False),
             patch("linkedin.pipeline.pools.run_search", return_value=None),
             patch("linkedin.pipeline.pools.run_qualification") as mock_qualify,
         ):
@@ -231,6 +237,7 @@ class TestGetCandidate:
         with (
             patch("linkedin.pipeline.pools.find_ready_candidate", side_effect=[None, candidate]),
             patch("linkedin.pipeline.pools.promote_to_ready", side_effect=[0, 1]),
+            patch("linkedin.pipeline.pools.has_qualification_candidates", return_value=True),
             patch("linkedin.pipeline.pools.fetch_qualification_candidates", return_value=candidates),
             patch("linkedin.pipeline.pools._needs_search", return_value=False),
             patch("linkedin.pipeline.pools.run_qualification", return_value="alice"),
@@ -257,6 +264,7 @@ class TestGetCandidate:
         with (
             patch("linkedin.pipeline.pools.find_ready_candidate", side_effect=[None, candidate]),
             patch("linkedin.pipeline.pools.promote_to_ready", side_effect=[0, 1]),
+            patch("linkedin.pipeline.pools.has_qualification_candidates", return_value=True),
             patch("linkedin.pipeline.pools.fetch_qualification_candidates", return_value=candidates),
             patch("linkedin.pipeline.pools._needs_search", return_value=False),
             patch("linkedin.pipeline.pools.run_qualification", return_value="alice"),

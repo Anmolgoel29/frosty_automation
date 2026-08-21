@@ -107,6 +107,30 @@ Three task types (handlers in `linkedin/tasks/`, signature: `handle_*(task, sess
 2. **`handle_check_pending`** — Per-profile. Exponential backoff with jitter. On acceptance → enqueues `follow_up`.
 3. **`handle_follow_up`** — Per-profile. Syncs the conversation (`db/chat.py:sync_conversation`) *before* evaluating `_unanswered_count`/`_too_soon_to_nudge` — both read local `ChatMessage` rows, so gating on them pre-sync would judge a reply that already arrived on LinkedIn by stale local state (and just re-enqueue without ever seeing it; this also made the Task admin's "Run now" action a no-op against a fresh reply). `_too_soon_to_nudge` requires `unanswered_count * MIN_DAYS_PER_UNANSWERED` (3) days of silence since the last *outgoing* message — it returns `False` immediately once the most recent message is an incoming reply, so a synced reply always clears the cooldown. After the gates pass, calls `run_follow_up_agent()` (assumes the caller already synced) which returns a `FollowUpDecision` (structured output: `send_message`/`mark_completed`/`wait`). Handler executes the decision deterministically.
 
+## Database Query Budgets
+
+The daemon is a loop that never ends, so what matters is not how fast a query is but whether its *count* grows with the pipeline. Measured before/after on the hot paths (`tests/test_db_query_budget.py` keeps them honest by asserting the count is flat as the data grows, rather than asserting a magic number):
+
+| Path | Before | After | Runs |
+|---|---|---|---|
+| `reconcile()` @ 50 active deals | 163 | 11 | every 60s, forever |
+| `promote_to_ready()` @ 50 QUALIFIED | 51 | 2 | every backfill iteration |
+| `rank_profiles()` @ 50 ready | 50 | 1 | every connect task |
+| `fetch_qualification_candidates()` | 2 (unbounded rows) | 1 (≤300 rows) | several per iteration |
+
+The changes behind those numbers:
+
+- **`reconcile()`** — was two queries per active deal (an existence check, then an insert), which is what made DB volume grow with the pipeline rather than stay flat. Now `_live_task_keys(campaign_id)` reads every pending-or-running task for the campaign once into a set of `(task_type, profile_id, public_id)` keys, `_seed_connect_tasks`/`_seed_deal_tasks` test membership in memory and append to a list, and one `bulk_create` writes everything missing. They no longer route through `on_deal_state_entered` (which enqueues one at a time); the backoff jitter and payload shapes are reproduced inline to match `enqueue_check_pending`/`enqueue_follow_up`.
+- **`_load_profile_embeddings()`** (`ml/qualifier.py`) — one bulk `values_list("pk", "embedding")` for the batch, falling back to the lazy per-lead `get_embedding()` (which scrapes) only for leads with no stored embedding. `promote_to_ready` now calls this instead of its own per-profile loop, so both ranking and promotion share one loader.
+- **`fetch_qualification_candidates()`** — was two passes over every unlabelled lead (once as dicts via `get_leads_for_qualification`, once as full rows including the embedding blob). Now a single query capped at `MAX_QUALIFICATION_CANDIDATES` (300): the GP only needs a representative sample to choose its next question from, and scoring every lead ever discovered is unbounded work. `has_qualification_candidates()` is the EXISTS variant for callers that only need yes/no, and `qualify_source` uses it plus an in-memory `class_counts` check to skip loading the pool entirely in explore/cold-start mode (where `_needs_search` can only ever return False).
+- **`get_leads_for_qualification()`** — `.defer("embedding")`, since callers only need identifiers.
+- **`set_profile_state()`** — saves with `update_fields`. `Deal` carries two JSON fact lists (`profile_summary`, `chat_summary`) that can be kilobytes each; a bare `save()` re-sent them on every state transition.
+- **`allocate_ready_deals()`** — groups the rotation by owner and issues one UPDATE per account instead of one per lead.
+- **`_sync_from_api()`** (`db/chat.py`) — was `update_or_create` per message (a SELECT plus a write each) on a thread that is re-fetched in full every sync. Now one query collects the already-known `linkedin_urn`s and `bulk_create` inserts only the new rows; LinkedIn messages are immutable once sent, so there is nothing to update on the ones already stored.
+- **`AccountSession._maybe_refresh_cookies()`** — throttled to one read per `COOKIE_CHECK_INTERVAL` (300s). It ran on every `ensure_browser()` — which fires per profile visit, per scrape, per message — and each call re-read the whole cookie JSON blob to check an expiry measured in days.
+
+Deliberately *not* optimised: `can_execute()` keeps its `refresh_from_db`, so a rate limit edited in the admin takes effect on the very next check (covered by `tests/test_action_log.py::TestDynamicLimitChanges`). It runs once per rate-limited task rather than in a loop, so the guarantee is worth more than the query.
+
 ## Qualification ML Pipeline
 
 GPR (sklearn, ConstantKernel * RBF) inside Pipeline(StandardScaler, GPR) with BALD active learning:

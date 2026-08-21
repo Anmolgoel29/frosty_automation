@@ -91,6 +91,10 @@ def get_leads_for_qualification(session) -> list:
 
     Returns profile dicts for leads that are not permanently disqualified
     and have no Deal in this campaign.
+
+    ``.defer("embedding")`` keeps the 384-dim blobs out of this read — the
+    callers only need identifiers, and pulling every candidate's embedding
+    here moved megabytes per call once the pool grew.
     """
     from crm.models import Lead
 
@@ -98,7 +102,7 @@ def get_leads_for_qualification(session) -> list:
         disqualified=False,
     ).exclude(
         deal__campaign=session.campaign,
-    )
+    ).defer("embedding")
 
     return [lead.to_profile_dict() for lead in leads]
 

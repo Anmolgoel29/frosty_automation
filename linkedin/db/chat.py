@@ -73,30 +73,40 @@ def _sync_from_api(session, public_identifier: str, lead, ct) -> list:
     elements = raw.get("data", {}).get("messengerMessagesBySyncToken", {}).get("elements", [])
 
     self_urn = session.self_profile["urn"]
-    new_messages: list = []
 
-    for msg in elements:
-        parsed = parse_message_element(msg)
-        if not parsed or not parsed["entityUrn"]:
+    parsed_messages = [
+        p for p in (parse_message_element(m) for m in elements)
+        if p and p["entityUrn"]
+    ]
+
+    # Every sync re-fetches the whole thread, so most of these rows already
+    # exist. One query tells us which, instead of an upsert round-trip per
+    # message — and LinkedIn messages are immutable once sent, so there is
+    # nothing to update on the ones we already have.
+    known_urns = set(
+        ChatMessage.objects.filter(
+            linkedin_urn__in=[p["entityUrn"] for p in parsed_messages],
+        ).values_list("linkedin_urn", flat=True)
+    )
+
+    to_create = []
+    for parsed in parsed_messages:
+        if parsed["entityUrn"] in known_urns:
             continue
-
-        is_outgoing = parsed["sender_host_urn"] == self_urn
-
-        # Upsert by linkedin_urn
-        obj, created = ChatMessage.objects.update_or_create(
+        row = ChatMessage(
             linkedin_urn=parsed["entityUrn"],
-            defaults={
-                "content_type": ct,
-                "object_id": lead.pk,
-                "content": parsed["text"],
-                "is_outgoing": is_outgoing,
-                "owner": session.django_user,
-                **({"creation_date": parsed["delivered_at"]} if parsed["delivered_at"] else {}),
-            },
+            content_type=ct,
+            object_id=lead.pk,
+            content=parsed["text"],
+            is_outgoing=parsed["sender_host_urn"] == self_urn,
+            owner=session.django_user,
         )
-        if created:
-            new_messages.append(obj)
-            logger.debug("sync: new message from %s for %s", parsed["sender_name"], public_identifier)
+        if parsed["delivered_at"]:
+            row.creation_date = parsed["delivered_at"]
+        to_create.append(row)
+        logger.debug("sync: new message from %s for %s", parsed["sender_name"], public_identifier)
+
+    new_messages = ChatMessage.objects.bulk_create(to_create) if to_create else []
 
     # Sort new messages chronologically so the LLM sees them in order.
     new_messages.sort(key=lambda m: m.creation_date or m.pk)
