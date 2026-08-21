@@ -5,6 +5,8 @@
 #
 #   Admin panel : http://localhost:8000/admin/   (login: admin / admin)
 #   Browser (web VNC) : http://localhost:6080/vnc.html
+#     One port, one account at a time — switch via Admin → LinkedIn Profile
+#     → "Watch this account's browser (VNC)".
 #   Browser (native VNC client) : localhost:5900  (no password)
 
 services:

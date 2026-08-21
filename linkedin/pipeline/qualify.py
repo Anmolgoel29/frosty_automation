@@ -42,7 +42,21 @@ def fetch_qualification_candidates(session):
 
 
 def run_qualification(session, qualifier: BayesianQualifier) -> str | None:
-    """Qualify one unlabelled profile via BALD/auto-decision/LLM. Returns public_id or None."""
+    """Qualify one unlabelled profile via BALD/auto-decision/LLM. Returns public_id or None.
+
+    Serialised per campaign: the accounts share one unlabelled pool and one GP
+    model, so two of them qualifying at once would pick the same lead twice
+    (duplicate LLM call, then a ``unique_deal_per_campaign`` violation) and
+    refit the same sklearn pipeline concurrently. Candidates are re-read
+    *inside* the lock so the second account through sees the first one's label.
+    """
+    from linkedin.pipeline.locks import campaign_lock
+
+    with campaign_lock(session.campaign):
+        return _run_qualification_locked(session, qualifier)
+
+
+def _run_qualification_locked(session, qualifier: BayesianQualifier) -> str | None:
     from linkedin.ml.qualifier import qualify_with_llm, format_prediction
 
     candidates = fetch_qualification_candidates(session)

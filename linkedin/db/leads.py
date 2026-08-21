@@ -3,7 +3,7 @@ import random
 import time
 from typing import Dict, Any, Optional
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 
 from linkedin.url_utils import url_to_public_id, public_id_to_url
 from linkedin.enums import ProfileState
@@ -36,17 +36,25 @@ def create_enriched_lead(session, url: str, profile: Dict[str, Any]) -> Optional
 
     urn = profile.get("urn") or None
 
-    with transaction.atomic():
-        if Lead.objects.filter(public_identifier=public_id).exists():
-            return None
-        if urn and Lead.objects.filter(urn=urn).exists():
-            logger.info(
-                "Lead with URN %s already exists — skipping duplicate %s",
-                urn, public_id,
-            )
-            return None
-        lead = Lead.objects.create(linkedin_url=clean_url, public_identifier=public_id)
-        _cache_urn_from_profile(lead, profile)
+    try:
+        with transaction.atomic():
+            if Lead.objects.filter(public_identifier=public_id).exists():
+                return None
+            if urn and Lead.objects.filter(urn=urn).exists():
+                logger.info(
+                    "Lead with URN %s already exists — skipping duplicate %s",
+                    urn, public_id,
+                )
+                return None
+            lead = Lead.objects.create(linkedin_url=clean_url, public_identifier=public_id)
+            _cache_urn_from_profile(lead, profile)
+    except IntegrityError:
+        # Accounts search in parallel on different keywords and regularly land
+        # on the same person, so the existence checks above can both pass
+        # before either insert commits. The unique constraint is the real
+        # arbiter; losing the race just means someone else created the lead.
+        logger.debug("Lead %s created concurrently — skipping", public_id)
+        return None
 
     lead.embed_from_profile(profile)
 

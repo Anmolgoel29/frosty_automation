@@ -3,6 +3,9 @@
 # Deployment compose file. One container runs everything:
 #   Admin panel (always up)     : http://localhost:8000/admin/   (login: admin / admin)
 #   Browser view — noVNC (web)  : http://localhost:6080/vnc.html
+#     Each LinkedIn account renders on its own X display behind this one port.
+#     Switch which one you're watching: Admin → LinkedIn Profile → tick one
+#     → "Watch this account's browser (VNC)", then reload the noVNC tab.
 #   Browser view — native VNC   : vnc://localhost:5900           (no password)
 #
 # Structured data (leads, deals, campaigns, model blobs) lives in Postgres, in the

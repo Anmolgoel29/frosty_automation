@@ -1,7 +1,7 @@
 import logging
 
 import numpy as np
-from django.db import models
+from django.db import IntegrityError, models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -62,8 +62,15 @@ class Lead(models.Model):
             if Lead.objects.filter(urn=urn).exclude(pk=self.pk).exists():
                 logger.warning("URN %s already owned by another lead — skipping for %s", urn, self.public_identifier)
             else:
-                self.urn = urn
-                self.save(update_fields=["urn"])
+                try:
+                    self.urn = urn
+                    self.save(update_fields=["urn"])
+                except IntegrityError:
+                    # Another account scraped the same person at the same
+                    # moment and claimed the URN first; the check above and
+                    # this save are not atomic together.
+                    self.refresh_from_db(fields=["urn"])
+                    logger.debug("URN %s claimed concurrently for %s", urn, self.public_identifier)
 
         return profile
 

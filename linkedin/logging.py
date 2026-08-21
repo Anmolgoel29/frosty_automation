@@ -26,14 +26,22 @@ _LEVEL_LABELS = {
 }
 
 
+# Worker threads are named after their LinkedIn account (see daemon.py), so
+# tagging lines with the thread name is what keeps interleaved output from
+# several accounts readable. The supervisor thread stays untagged.
+_UNTAGGED_THREADS = ("MainThread",)
+
+
 class ColoredFormatter(logging.Formatter):
-    """Compact colored formatter: ``[LVL] message``."""
+    """Compact colored formatter: ``[LVL] [account] message``."""
 
     def format(self, record: logging.LogRecord) -> str:
         msg = super().format(record)
         color, attrs = _LEVEL_COLORS.get(record.levelno, (None, []))
         label = _LEVEL_LABELS.get(record.levelno, "???")
         prefix = colored(f"[{label}]", color, attrs=attrs) if color else f"[{label}]"
+        if record.threadName not in _UNTAGGED_THREADS:
+            prefix += " " + colored(f"[{record.threadName}]", "blue")
         return f"{prefix} {msg}"
 
 

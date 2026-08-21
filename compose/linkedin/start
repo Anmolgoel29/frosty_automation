@@ -10,15 +10,49 @@
 set -o pipefail
 set -o nounset
 
-# ── Virtual display (Playwright launches headed) ─────────────────────
+# ── Virtual displays ─────────────────────────────────────────────────
+# :99 is the fallback display. Each LinkedIn account then gets its own Xvfb
+# (:100 + profile id), started on demand by the daemon — see vnc.py — so the
+# accounts' browser windows never overlap.
 rm -f /tmp/.X99-lock
 Xvfb :99 -screen 0 1920x1080x24 &
 sleep 1
 export DISPLAY=:99
+export OPENOUTREACH_PER_ACCOUNT_DISPLAY=true
 
 # ── VNC remote access (browser at :6080, native client at :5900) ─────
+# One VNC server for any number of accounts: it follows whichever display the
+# control file names, and the admin panel rewrites that file to switch
+# accounts. A server per account would need its ports published up front,
+# which rules out adding accounts to a running daemon.
+VNC_CONTROL_FILE="${OPENOUTREACH_VNC_CONTROL_FILE:-/tmp/openoutreach-vnc-display}"
+
+vnc_follow_selected_display() {
+    local current=""
+    while true; do
+        local wanted
+        wanted="$(cat "$VNC_CONTROL_FILE" 2>/dev/null || true)"
+        [ -z "$wanted" ] && wanted=":99"
+
+        if [ "$wanted" != "$current" ]; then
+            # Only switch once the target display actually exists, otherwise
+            # x11vnc exits immediately and the viewer sees nothing.
+            if [ -e "/tmp/.X${wanted#:}-lock" ] || [ "$wanted" = ":99" ]; then
+                echo "[start] VNC now showing $wanted"
+                pkill -f "x11vnc -display" 2>/dev/null || true
+                x11vnc -display "$wanted" -forever -shared -nopw -rfbport 5900 -bg \
+                    -quiet 2>/dev/null
+                current="$wanted"
+            fi
+        fi
+        sleep 2
+    done
+}
+
 if [ "${ENABLE_VNC:-true}" = "true" ]; then
-    x11vnc -display :99 -forever -shared -nopw -rfbport 5900 -bg
+    vnc_follow_selected_display &
+    # websockify outlives the x11vnc restarts — the noVNC tab reconnects on
+    # its own when the server behind it comes back.
     websockify --web /opt/noVNC 6080 localhost:5900 &
 fi
 

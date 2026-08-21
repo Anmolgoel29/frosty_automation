@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import random
 import time
 from functools import cached_property
@@ -20,6 +21,29 @@ def random_sleep(min_val, max_val):
     time.sleep(delay)
 
 
+def _ensure_xvfb(display: str) -> None:
+    """Start an Xvfb server on *display* unless one is already running.
+
+    Each account gets its own virtual screen so their browser windows never
+    overlap in the VNC viewer. The lock file X creates is the liveness check —
+    it is what X itself uses to refuse a second server on the same display.
+    """
+    import subprocess
+
+    if os.path.exists(f"/tmp/.X{display.lstrip(':')}-lock"):
+        return
+
+    logger.info("Starting Xvfb on %s", display)
+    subprocess.Popen(
+        ["Xvfb", display, "-screen", "0", "1920x1080x24"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    # X needs a moment to create its socket; launching Chromium against a
+    # display that isn't listening yet fails outright.
+    time.sleep(1.5)
+
+
 class AccountSession:
     def __init__(self, linkedin_profile):
         self.linkedin_profile = linkedin_profile
@@ -28,11 +52,33 @@ class AccountSession:
         # Active campaign — set by the daemon before each lane execution
         self.campaign = None
 
-        # Playwright objects – created on first access or after crash
+        # Playwright objects – created on first access or after crash.
+        # All of them belong to the worker thread that created them: the
+        # Playwright sync API is thread-affine, so only this account's worker
+        # may touch them (that is why the supervisor asks a worker to shut
+        # itself down instead of calling close() across threads).
         self.page = None
         self.context = None
         self.browser = None
         self.playwright = None
+
+        # The X display this account's browser draws on, once claimed.
+        self._display = None
+
+    def ensure_display(self) -> str | None:
+        """Claim this account's own X display, starting Xvfb if needed.
+
+        Returns None when per-account displays are off (local development on
+        a real desktop), in which case the browser uses the ambient DISPLAY.
+        """
+        from vnc import display_for, per_account_displays_enabled
+
+        if not per_account_displays_enabled():
+            return None
+        if self._display is None:
+            self._display = display_for(self.linkedin_profile.pk)
+            _ensure_xvfb(self._display)
+        return self._display
 
     @cached_property
     def campaigns(self):

@@ -22,7 +22,18 @@ def promote_to_ready(session, qualifier: BayesianQualifier, threshold: float) ->
 
     Returns the number of profiles promoted. Returns 0 when the GP model
     is not fitted (cold start) or when no QUALIFIED profiles exist.
+
+    Shares the campaign lock with ``run_qualification``: it reads the same GP
+    model, and two accounts promoting the same QUALIFIED pool concurrently
+    would both count the same promotions.
     """
+    from linkedin.pipeline.locks import campaign_lock
+
+    with campaign_lock(session.campaign):
+        return _promote_to_ready_locked(session, qualifier, threshold)
+
+
+def _promote_to_ready_locked(session, qualifier: BayesianQualifier, threshold: float) -> int:
     from crm.models import Lead
 
     profiles = get_qualified_profiles(session)

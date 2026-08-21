@@ -6,7 +6,7 @@ from linkedin.db.deals import set_profile_state
 from linkedin.db.leads import create_enriched_lead, promote_lead_to_deal
 from linkedin.models import Task
 from linkedin.enums import ProfileState
-from linkedin.tasks.scheduler import reconcile
+from linkedin.tasks.scheduler import reconcile, recover_stale_running_tasks
 from tests.conftest import sessions_map
 
 
@@ -42,7 +42,8 @@ class TestReconcile:
     def _db(self, db):
         pass
 
-    def test_recovers_stale_running_tasks(self, fake_session):
+    def test_startup_recovers_orphaned_running_tasks(self, fake_session):
+        """At startup no worker exists, so a RUNNING row is a crashed process."""
         Task.objects.create(
             task_type=Task.TaskType.CONNECT,
             linkedin_profile=fake_session.linkedin_profile,
@@ -50,11 +51,51 @@ class TestReconcile:
             scheduled_at=timezone.now(),
             payload={"campaign_id": fake_session.campaign.pk},
         )
-        reconcile(sessions_map(fake_session))
+        assert recover_stale_running_tasks() == 1
         assert Task.objects.filter(status=Task.Status.RUNNING).count() == 0
         assert Task.objects.filter(
             task_type=Task.TaskType.CONNECT,
             status=Task.Status.PENDING,
+        ).exists()
+
+    def test_reconcile_leaves_running_tasks_alone(self, fake_session):
+        """RUNNING means a worker thread is executing it right now. Reconcile
+        runs on a timer while workers are live, so resetting those rows would
+        hand live work back to the queue and run it twice."""
+        running = Task.objects.create(
+            task_type=Task.TaskType.CONNECT,
+            linkedin_profile=fake_session.linkedin_profile,
+            status=Task.Status.RUNNING,
+            scheduled_at=timezone.now(),
+            payload={"campaign_id": fake_session.campaign.pk},
+        )
+        reconcile(sessions_map(fake_session))
+
+        running.refresh_from_db()
+        assert running.status == Task.Status.RUNNING
+        # ...and no second connect task stacked on top of the live one.
+        assert not Task.objects.filter(
+            task_type=Task.TaskType.CONNECT, status=Task.Status.PENDING,
+        ).exists()
+
+    def test_does_not_duplicate_a_running_deal_task(self, fake_session):
+        """A follow_up mid-execution must not get a pending twin — that would
+        message the lead twice."""
+        _make_connected(fake_session, "alice")
+        Task.objects.create(
+            task_type=Task.TaskType.FOLLOW_UP,
+            linkedin_profile=fake_session.linkedin_profile,
+            status=Task.Status.RUNNING,
+            scheduled_at=timezone.now(),
+            payload={"campaign_id": fake_session.campaign.pk, "public_id": "alice"},
+        )
+
+        reconcile(sessions_map(fake_session))
+
+        assert not Task.objects.filter(
+            task_type=Task.TaskType.FOLLOW_UP,
+            status=Task.Status.PENDING,
+            payload__public_id="alice",
         ).exists()
 
     def test_seeds_connect_per_campaign(self, fake_session):

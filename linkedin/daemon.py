@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import random
+import threading
 import time
 from datetime import timedelta
 from zoneinfo import ZoneInfo
@@ -137,6 +138,12 @@ def sync_sessions(sessions: dict) -> None:
         session = get_or_create_session(profile)
         # Re-bind the row (limits, active flag) and drop the cached campaign
         # list — membership may have changed since this session was built.
+        # `_exhausted` records "LinkedIn itself cut this account off today",
+        # which no column reflects, so it has to survive the swap or the
+        # account would retry every time the roster is re-read.
+        previous = session.linkedin_profile
+        if previous is not profile:
+            profile._exhausted = previous._exhausted
         session.linkedin_profile = profile
         session.__dict__.pop("campaigns", None)
         if not session.campaigns:
@@ -153,12 +160,12 @@ def sync_sessions(sessions: dict) -> None:
             live[pk].linkedin_profile.linkedin_username,
         )
     for pk in sorted(set(sessions) - set(live)):
-        dropped = sessions[pk]
         logger.info(
             colored("Account removed", "yellow") + " — %s leaves the rotation",
-            dropped.linkedin_profile.linkedin_username,
+            sessions[pk].linkedin_profile.linkedin_username,
         )
-        dropped.close()
+        # Its browser is closed by its own worker thread on shutdown — the
+        # Playwright sync API cannot be driven from this thread.
 
     sessions.clear()
     sessions.update(live)
@@ -217,20 +224,203 @@ def seconds_until_active() -> float:
 
 
 # ------------------------------------------------------------------
-# Task queue worker
+# Multi-account task queue: one worker thread per LinkedIn account
 # ------------------------------------------------------------------
 
 
-def run_daemon(sessions: dict):
-    """Task queue worker driving one browser session per LinkedIn account.
+class _StartSpacer:
+    """Keeps two accounts from firing their first request at the same instant.
 
-    ``sessions`` maps LinkedInProfile pk → AccountSession. Tasks carry the
-    account that must execute them, so the loop is still strictly
-    single-threaded — one account acts at a time — while leads stay bound to
-    the account that reached out to them.
+    The workers genuinely run in parallel — a search takes a minute or two and
+    the accounts overlap for most of it, which is the point. What this avoids
+    is the sharper signal: two accounts on one IP starting an action in the
+    same second, over and over. Each worker waits out a short jittered gap
+    since the last task *start* before beginning its own.
     """
-    from linkedin.models import Campaign
-    from linkedin.tasks.scheduler import campaigns_in
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._last_start = 0.0
+
+    def wait_turn(self, stop: threading.Event) -> None:
+        with self._lock:
+            gap = random.uniform(
+                CAMPAIGN_CONFIG["account_stagger_min_seconds"],
+                CAMPAIGN_CONFIG["account_stagger_max_seconds"],
+            )
+            wait = self._last_start + gap - time.monotonic()
+            if wait > 0:
+                stop.wait(wait)
+            self._last_start = time.monotonic()
+
+
+class _AccountWorker(threading.Thread):
+    """Runs one LinkedIn account's queue on its own browser.
+
+    Everything Playwright touches — launching the browser, driving it, closing
+    it — happens on this thread, because the sync API is thread-affine. The
+    supervisor never reaches into a session; it asks the worker to stop and
+    the worker tears its own browser down.
+    """
+
+    def __init__(self, session, qualifiers, spacer, stop_all):
+        profile = session.linkedin_profile
+        super().__init__(name=profile.linkedin_username.split("@")[0], daemon=True)
+        self.session = session
+        self.profile_id = profile.pk
+        self._qualifiers = qualifiers
+        self._spacer = spacer
+        self._stop_all = stop_all
+        self._stop_me = threading.Event()
+
+    def stop(self):
+        """Ask the worker to finish its current task and shut down."""
+        self._stop_me.set()
+
+    @property
+    def _stopping(self) -> bool:
+        return self._stop_me.is_set() or self._stop_all.is_set()
+
+    def run(self):
+        from django.db import connection
+
+        heartbeat = Heartbeat()
+        rhythm = _HumanRhythmBreak(heartbeat)
+        logger.info(colored("worker started", "green"))
+
+        try:
+            while not self._stopping:
+                if self._wait_for_active_hours(heartbeat, rhythm):
+                    continue
+
+                task = Task.objects.claim_for(self.profile_id)
+                if task is None:
+                    self._wait_for_work(heartbeat, rhythm)
+                    continue
+
+                self._spacer.wait_turn(self._stop_me)
+                if self._stopping:
+                    # Put it back rather than running it on the way out.
+                    task.mark_pending()
+                    break
+
+                if self._run_task(task):
+                    rhythm.maybe_break()
+        except Exception:
+            logger.exception("worker crashed")
+        finally:
+            self.session.close()
+            connection.close()
+            logger.info(colored("worker stopped", "yellow"))
+
+    # -- loop steps ----------------------------------------------------
+
+    def _wait_for_active_hours(self, heartbeat, rhythm) -> bool:
+        pause = seconds_until_active()
+        if pause <= 0:
+            return False
+        h, m = int(pause // 3600), int(pause % 3600 // 60)
+        logger.info("Outside active hours — sleeping %dh%02dm", h, m)
+        self._interruptible_sleep(pause, heartbeat, f"outside active hours, {h}h{m:02d}m left")
+        rhythm.reset()
+        return True
+
+    def _wait_for_work(self, heartbeat, rhythm) -> None:
+        """Idle until this account's next task is due.
+
+        Polls in short slices rather than sleeping the whole delay, so a task
+        rescheduled to run sooner — the admin's "Run now" — starts within
+        QUEUE_POLL_INTERVAL. Reconciliation is the supervisor's job; a worker
+        with nothing to do simply waits.
+        """
+        wait = Task.objects.seconds_to_next(self.profile_id)
+        if wait is None:
+            self._interruptible_sleep(QUEUE_POLL_INTERVAL, heartbeat, "no tasks queued")
+            rhythm.reset()
+            return
+        if wait > 0:
+            h, m = int(wait // 3600), int(wait % 3600 // 60)
+            if wait > QUEUE_POLL_INTERVAL:
+                logger.info("Next task in %dh%02dm", h, m)
+            self._interruptible_sleep(
+                min(wait, QUEUE_POLL_INTERVAL), heartbeat, f"next task in {h}h{m:02d}m",
+            )
+            rhythm.reset()
+
+    def _run_task(self, task) -> bool:
+        """Execute one task. Returns True when it completed cleanly."""
+        from linkedin.models import Campaign
+
+        campaign = Campaign.objects.filter(pk=task.payload.get("campaign_id")).first()
+        if not campaign:
+            logger.error("Campaign %s not found", task.payload.get("campaign_id"))
+            task.mark_failed()
+            return False
+
+        self.session.campaign = campaign
+
+        handler = _HANDLERS.get(task.task_type)
+        if handler is None:
+            logger.error("Unknown task type: %s", task.task_type)
+            task.mark_failed()
+            return False
+
+        qualifier_for = self._qualifiers
+        try:
+            with failure_diagnostics(self.session):
+                handler(task, self.session, qualifier_for)
+        except AuthenticationError:
+            logger.warning("Session expired during %s — re-authenticating", task)
+            try:
+                self.session.reauthenticate()
+            except Exception:
+                logger.exception("Re-authentication failed for %s", task)
+            # Either way, mark this task FAILED; reconcile will re-create a
+            # fresh task for the deal on the next supervisor cycle.
+            task.mark_failed()
+            return False
+        except ModelHTTPError as e:
+            task.mark_failed()
+            logger.error(
+                colored("Daemon stopping — LLM API error", "red", attrs=["bold"])
+                + "\n%s\nCheck chat_/task_ llm_provider, ai_model, llm_api_key, and llm_api_base "
+                "in Admin → Site Configuration.", e,
+            )
+            # A bad LLM config breaks every account, not just this one.
+            self._stop_all.set()
+            return False
+        except Exception:
+            task.mark_failed()
+            logger.exception("Task %s failed", task)
+            return False
+
+        task.mark_completed()
+        return True
+
+    def _interruptible_sleep(self, seconds: float, heartbeat: Heartbeat, context: str) -> None:
+        end = time.monotonic() + seconds
+        while not self._stopping:
+            remaining = end - time.monotonic()
+            if remaining <= 0:
+                return
+            self._stop_me.wait(min(HEARTBEAT_SLICE, remaining))
+            heartbeat.maybe_log(context)
+
+
+def run_daemon(sessions: dict):
+    """Run every LinkedIn account in parallel, one worker thread each.
+
+    ``sessions`` maps LinkedInProfile pk → AccountSession. Each account gets a
+    thread with its own browser and its own slice of the queue (tasks carry
+    the account that must execute them), so the accounts search and connect
+    at the same time instead of taking turns.
+
+    This thread is the supervisor: it owns reconciliation — the single writer,
+    so workers never race each other re-creating the same task — re-reads the
+    account roster so accounts added in the admin start working without a
+    restart, and keeps a worker alive for every account.
+    """
+    from linkedin.tasks.scheduler import campaigns_in, recover_stale_running_tasks
 
     cfg = CAMPAIGN_CONFIG
 
@@ -241,123 +431,68 @@ def run_daemon(sessions: dict):
 
     qualifiers = _build_qualifiers(campaigns, cfg)
 
+    # Safe here and nowhere else: no worker exists yet, so any RUNNING row is
+    # an orphan from a previous process rather than live work.
+    recover_stale_running_tasks()
+
     logger.info(
         colored("Daemon started", "green", attrs=["bold"])
-        + " — %d campaigns, %d LinkedIn account(s): %s",
+        + " — %d campaigns, %d LinkedIn account(s) in parallel: %s",
         len(campaigns), len(sessions),
         ", ".join(s.linkedin_profile.linkedin_username for s in sessions.values()),
     )
 
-    heartbeat = Heartbeat()
-    rhythm = _HumanRhythmBreak(heartbeat)
+    stop_all = threading.Event()
+    spacer = _StartSpacer()
+    workers: dict[int, _AccountWorker] = {}
 
-    # Single-threaded: one task at a time, no concurrent enqueuing,
-    # so sleeping until the next scheduled_at is safe.
-    while True:
-        pause = seconds_until_active()
-        if pause > 0:
-            h, m = int(pause // 3600), int(pause % 3600 // 60)
-            logger.info("Outside active hours — sleeping %dh%02dm", h, m)
-            sleep_with_heartbeat(
-                pause, heartbeat, f"outside active hours, {h}h{m:02d}m left",
-            )
-            rhythm.reset()
-            continue
-
-        task = Task.objects.claim_next()
-        if task is None:
-            # Nothing ready — pick up any account added or deactivated in the
-            # admin, then reconcile the queue from CRM state. Any deal stuck
-            # without a pending task (e.g. because a prior handler crashed)
-            # gets a fresh task here; this is the retry mechanism.
-            from linkedin.tasks.scheduler import reconcile
+    try:
+        while not stop_all.is_set():
             sync_sessions(sessions)
             if not sessions:
-                logger.error("No usable LinkedIn accounts left — sleeping 1h")
-                sleep_with_heartbeat(3600, heartbeat, "no accounts")
-                rhythm.reset()
-                continue
-            # A newly-attached campaign needs its own GP model; existing
-            # qualifiers are left alone so their in-memory state survives.
-            for campaign in campaigns_in(sessions):
-                if campaign.pk not in qualifiers:
-                    qualifiers.update(_build_qualifiers([campaign], cfg))
-            reconcile(sessions)
+                logger.error("No usable LinkedIn accounts — waiting")
+            else:
+                # A newly-attached campaign needs its own GP model; existing
+                # qualifiers are left alone so their in-memory state survives.
+                for campaign in campaigns_in(sessions):
+                    if campaign.pk not in qualifiers:
+                        qualifiers.update(_build_qualifiers([campaign], cfg))
 
-            wait = Task.objects.seconds_to_next()
-            if wait is None:
-                logger.info("Queue empty after reconcile — sleeping 1h")
-                sleep_with_heartbeat(3600, heartbeat, "queue empty")
-                rhythm.reset()
-                continue
-            if wait > 0:
-                h, m = int(wait // 3600), int(wait % 3600 // 60)
-                logger.info("Next task in %dh%02dm — sleeping", h, m)
-                # Poll in short slices (rather than one long sleep) so a task
-                # rescheduled to run sooner — e.g. via the "Run now" admin
-                # action — is picked up within QUEUE_POLL_INTERVAL instead of
-                # waiting out the originally-computed delay.
-                while wait is not None and wait > 0:
-                    sleep_with_heartbeat(
-                        min(wait, QUEUE_POLL_INTERVAL), heartbeat, f"next task in {h}h{m:02d}m",
-                    )
-                    wait = Task.objects.seconds_to_next()
-                rhythm.reset()
-            continue
+                _sync_workers(workers, sessions, qualifiers, spacer, stop_all)
 
-        campaign = Campaign.objects.filter(pk=task.payload.get("campaign_id")).first()
-        if not campaign:
-            logger.error("Campaign %s not found", task.payload.get("campaign_id"))
-            task.mark_failed()
-            continue
+                from linkedin.tasks.scheduler import reconcile
+                reconcile(sessions)
 
-        # Route to the account that owns the work. A task whose account is no
-        # longer running (deactivated, detached from every campaign) can't be
-        # picked up by anyone else — the invite and the thread live on that
-        # account — so it fails and stays failed until the account is back.
-        session = sessions.get(task.linkedin_profile_id)
-        if session is None:
-            logger.error(
-                "Task %s targets LinkedIn account #%s, which this daemon isn't running",
-                task, task.linkedin_profile_id,
+            stop_all.wait(cfg["supervisor_interval_seconds"])
+    except KeyboardInterrupt:
+        logger.info("Interrupted — shutting down")
+    finally:
+        stop_all.set()
+        for worker in workers.values():
+            worker.stop()
+        for worker in workers.values():
+            worker.join(timeout=60)
+
+
+def _sync_workers(workers: dict, sessions: dict, qualifiers, spacer, stop_all) -> None:
+    """Keep exactly one live worker per account in the roster."""
+    for pk in list(workers):
+        worker = workers[pk]
+        if pk not in sessions:
+            worker.stop()
+            del workers[pk]
+        elif not worker.is_alive():
+            # Crashed or finished shutting down — drop it so it is respawned
+            # below with a fresh session.
+            logger.warning(
+                "Worker for %s is gone — restarting it",
+                worker.session.linkedin_profile.linkedin_username,
             )
-            task.mark_failed()
-            continue
+            del workers[pk]
 
-        session.campaign = campaign
-        task.mark_running()
-
-        handler = _HANDLERS.get(task.task_type)
-        if handler is None:
-            logger.error("Unknown task type: %s", task.task_type)
-            task.mark_failed()
+    for pk, session in sessions.items():
+        if pk in workers:
             continue
-
-        try:
-            with failure_diagnostics(session):
-                handler(task, session, qualifiers)
-        except AuthenticationError:
-            logger.warning("Session expired during %s — re-authenticating", task)
-            try:
-                session.reauthenticate()
-            except Exception:
-                logger.exception("Re-authentication failed for %s", task)
-            # Either way, mark this task FAILED; reconcile will re-create a
-            # fresh task for the deal on the next idle cycle.
-            task.mark_failed()
-            continue
-        except ModelHTTPError as e:
-            task.mark_failed()
-            logger.error(
-                colored("Daemon stopped — LLM API error", "red", attrs=["bold"])
-                + "\n%s\nCheck chat_/task_ llm_provider, ai_model, llm_api_key, and llm_api_base "
-                "in Admin → Site Configuration.", e,
-            )
-            return
-        except Exception:
-            task.mark_failed()
-            logger.exception("Task %s failed", task)
-            continue
-
-        task.mark_completed()
-        rhythm.maybe_break()
+        worker = _AccountWorker(session, qualifiers, spacer, stop_all)
+        workers[pk] = worker
+        worker.start()

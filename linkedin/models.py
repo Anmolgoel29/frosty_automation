@@ -248,12 +248,44 @@ class TaskQuerySet(models.QuerySet):
     def pending(self):
         return self.filter(status=Task.Status.PENDING).order_by("scheduled_at")
 
-    def claim_next(self) -> "Task | None":
-        return self.pending().filter(scheduled_at__lte=timezone.now()).first()
+    def claim_for(self, linkedin_profile_id: int) -> "Task | None":
+        """Atomically take the next due task belonging to one account.
 
-    def seconds_to_next(self) -> float | None:
-        """Seconds until the next pending task, or None if queue is empty."""
-        next_task = self.pending().only("scheduled_at").first()
+        Each account has its own worker thread, so the claim marks the row
+        RUNNING inside the same transaction that locks it: two workers can
+        never end up holding the same task. ``SKIP LOCKED`` means a worker
+        never waits on a row another worker already took.
+        """
+        from django.db import transaction
+
+        with transaction.atomic():
+            task = (
+                self.select_for_update(skip_locked=True)
+                .filter(
+                    status=Task.Status.PENDING,
+                    linkedin_profile_id=linkedin_profile_id,
+                    scheduled_at__lte=timezone.now(),
+                )
+                .order_by("scheduled_at")
+                .first()
+            )
+            if task is None:
+                return None
+            task.status = Task.Status.RUNNING
+            task.started_at = timezone.now()
+            task.save(update_fields=["status", "started_at"])
+            return task
+
+    def seconds_to_next(self, linkedin_profile_id: int | None = None) -> float | None:
+        """Seconds until the next pending task, or None if the queue is empty.
+
+        Scoped to one account when given an id — a worker waits on its own
+        queue, not on work another account is about to do.
+        """
+        qs = self.pending()
+        if linkedin_profile_id is not None:
+            qs = qs.filter(linkedin_profile_id=linkedin_profile_id)
+        next_task = qs.only("scheduled_at").first()
         if next_task is None:
             return None
         return max((next_task.scheduled_at - timezone.now()).total_seconds(), 0)
@@ -299,9 +331,10 @@ class Task(models.Model):
     def __str__(self):
         return f"{self.task_type} [{self.status}] scheduled={self.scheduled_at}"
 
-    def mark_running(self):
-        self.status = self.Status.RUNNING
-        self.started_at = timezone.now()
+    def mark_pending(self):
+        """Hand a claimed task back to the queue (worker shutting down)."""
+        self.status = self.Status.PENDING
+        self.started_at = None
         self.save(update_fields=["status", "started_at"])
 
     def mark_completed(self):

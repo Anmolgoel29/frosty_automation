@@ -1,5 +1,6 @@
 # linkedin/browser/login.py
 import logging
+import os
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
@@ -95,10 +96,20 @@ def playwright_login(session: "AccountSession"):
     )
 
 
-def launch_browser(storage_state=None):
-    logger.debug("Launching Playwright")
+def launch_browser(storage_state=None, display: str | None = None):
+    """Launch a headed Chromium, optionally on its own X display.
+
+    ``display`` isolates this account's browser window from the others so the
+    VNC viewer shows one account at a time instead of overlapping windows.
+    """
+    logger.debug("Launching Playwright%s", f" on {display}" if display else "")
     playwright = sync_playwright().start()
-    browser = playwright.chromium.launch(headless=False, slow_mo=BROWSER_SLOW_MO)
+    # env= replaces the browser's whole environment rather than merging, so
+    # copy the current one and override only DISPLAY.
+    launch_env = {**os.environ, "DISPLAY": display} if display else None
+    browser = playwright.chromium.launch(
+        headless=False, slow_mo=BROWSER_SLOW_MO, env=launch_env,
+    )
     context = browser.new_context(storage_state=storage_state)
     context.set_default_timeout(BROWSER_DEFAULT_TIMEOUT_MS)
     context.set_default_navigation_timeout(BROWSER_DEFAULT_TIMEOUT_MS)
@@ -124,7 +135,9 @@ def start_browser_session(session: "AccountSession"):
     if storage_state:
         logger.info("Loading saved session for %s", session)
 
-    session.page, session.context, session.browser, session.playwright = launch_browser(storage_state=storage_state)
+    session.page, session.context, session.browser, session.playwright = launch_browser(
+        storage_state=storage_state, display=session.ensure_display(),
+    )
 
     if not storage_state:
         playwright_login(session)

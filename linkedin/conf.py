@@ -72,6 +72,14 @@ CAMPAIGN_CONFIG = {
     "burst_max_seconds": 3900,   # 65 min
     "break_min_seconds": 600,    # 10 min
     "break_max_seconds": 1200,   # 20 min
+    # Multi-account pacing: minimum jittered gap between two accounts *starting*
+    # a task. Tasks still overlap (that is the point of running in parallel),
+    # but the accounts don't fire their first request in the same instant,
+    # which is the part that correlates them from a shared IP.
+    "account_stagger_min_seconds": 20,
+    "account_stagger_max_seconds": 60,
+    # How often the supervisor re-reads the account roster and reconciles.
+    "supervisor_interval_seconds": 60,
 }
 
 

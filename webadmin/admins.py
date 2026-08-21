@@ -115,6 +115,32 @@ async def _resume_ai(session: AsyncSession, ids: list[int]) -> str:
     return f"Successfully resumed AI for {result.rowcount} lead(s)."
 
 
+async def _watch_browser(session: AsyncSession, ids: list[int]) -> str:
+    """Point the single VNC feed at this account's browser.
+
+    Every account renders on its own X display; one VNC server follows
+    whichever display the control file names, and the start script's watcher
+    switches it within a couple of seconds. Pick one account — the feed shows
+    one at a time.
+    """
+    from vnc import display_for, select_display
+
+    if len(ids) != 1:
+        return "Pick exactly one account — the VNC feed shows one browser at a time."
+
+    profile = await session.get(LinkedInProfile, ids[0])
+    if profile is None:
+        return "That LinkedIn account no longer exists."
+
+    display = display_for(profile.id)
+    select_display(display)
+    return (
+        f"VNC feed switching to {profile.linkedin_username} ({display}). "
+        "Reload the noVNC tab at port 6080 in a couple of seconds. "
+        "If the screen is black, that account's browser hasn't launched yet."
+    )
+
+
 # ---------------------------------------------------------------------------
 # ModelAdmin registrations.
 # ---------------------------------------------------------------------------
@@ -148,6 +174,13 @@ register(ModelAdmin(
     # there is no user admin to look ids up in. `self_lead` stays a raw id —
     # crm_lead is far too large for a select.
     raw_id_fields=["self_lead"],
+    actions=[
+        AdminAction(
+            name="watch_browser",
+            label="Watch this account's browser (VNC)",
+            handler=_watch_browser,
+        ),
+    ],
 ))
 
 register(ModelAdmin(
