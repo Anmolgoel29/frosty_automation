@@ -25,17 +25,62 @@ def random_sleep(min_val, max_val):
     time.sleep(delay)
 
 
+def _lock_file_pid(lock_path: str) -> int | None:
+    """PID recorded in an X lock file, or None if it can't be read/parsed."""
+    try:
+        with open(lock_path) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _process_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, just owned by someone else
+    return True
+
+
 def _ensure_xvfb(display: str) -> None:
     """Start an Xvfb server on *display* unless one is already running.
 
     Each account gets its own virtual screen so their browser windows never
     overlap in the VNC viewer. The lock file X creates is the liveness check —
     it is what X itself uses to refuse a second server on the same display.
+
+    That lock file only tells the truth across a *clean* X exit. A container
+    that gets SIGKILLed (OOM, `docker stop` timeout) or crashes leaves it
+    behind with no Xvfb process to match — and since the container's
+    writable layer (and therefore /tmp) survives a restart that doesn't
+    recreate the container, the stale lock persists into the next run. This
+    function then wrongly concludes the display is live, no new Xvfb gets
+    spawned, and every consumer of that display fails downstream: x11vnc's
+    "XOpenDisplay failed", then Chromium's "Missing X server or $DISPLAY".
+    Checking the PID the lock file names is actually alive tells real and
+    stale locks apart.
     """
     import subprocess
 
-    if os.path.exists(f"/tmp/.X{display.lstrip(':')}-lock"):
+    number = display.lstrip(":")
+    lock_path = f"/tmp/.X{number}-lock"
+    pid = _lock_file_pid(lock_path)
+    if pid is not None and _process_alive(pid):
         return
+
+    if pid is not None:
+        logger.warning(
+            "Stale X lock for %s (pid %d is not running — likely an unclean "
+            "container restart) — clearing it and starting a fresh Xvfb",
+            display, pid,
+        )
+        for stale in (lock_path, f"/tmp/.X11-unix/X{number}"):
+            try:
+                os.remove(stale)
+            except OSError:
+                pass
 
     logger.info("Starting Xvfb on %s", display)
     subprocess.Popen(

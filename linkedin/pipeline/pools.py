@@ -105,10 +105,10 @@ def qualify_source(session, qualifier: BayesianQualifier) -> Generator[str, None
     """Yield public_ids from run_qualification(), pulling from search when needed.
 
     In exploit mode, the effective pool is candidates with P > 0.5. When
-    this pool is empty, keeps searching until high-P candidates appear or
-    search is exhausted. Every yield produces a label that shifts the GP
-    model. Only falls through to qualifying low-P candidates when search
-    can no longer bring in new profiles.
+    this pool is empty, searches for high-P candidates up to
+    ``max_search_attempts_per_qualify`` times, then falls through to
+    qualifying whatever the existing pool has. Every yield produces a label
+    that shifts the GP model.
     """
     search = search_source(session)
 
@@ -126,13 +126,23 @@ def qualify_source(session, qualifier: BayesianQualifier) -> Generator[str, None
         # load the pool just to be told that.
         n_neg, n_pos = qualifier.class_counts
         if n_neg > n_pos:
-            candidates = fetch_qualification_candidates(session)
-            # In exploit mode with no P > 0.5 candidates, keep searching
-            # until the positive pool is non-empty or search is exhausted.
-            while _needs_search(qualifier, candidates):
+            # newest_first: this check exists to judge what search just
+            # found. The default oldest-first window can't see a
+            # freshly-discovered profile once the backlog exceeds
+            # MAX_QUALIFICATION_CANDIDATES, which would make every attempt
+            # fail for reasons unrelated to the search results.
+            candidates = fetch_qualification_candidates(session, newest_first=True)
+            # In exploit mode with no P > 0.5 candidates, search for one —
+            # capped, so a persistently low hit rate costs a few searches
+            # per attempt, not the campaign's entire keyword supply (real
+            # LinkedIn traffic on every account, every time this triggers).
+            max_attempts = CAMPAIGN_CONFIG["max_search_attempts_per_qualify"]
+            attempts = 0
+            while _needs_search(qualifier, candidates) and attempts < max_attempts:
                 if next(search, None) is None:
                     break
-                candidates = fetch_qualification_candidates(session)
+                candidates = fetch_qualification_candidates(session, newest_first=True)
+                attempts += 1
 
         result = run_qualification(session, qualifier)
         if result is None:

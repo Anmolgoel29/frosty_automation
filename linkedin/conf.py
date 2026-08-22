@@ -62,6 +62,14 @@ CAMPAIGN_CONFIG = {
     "qualification_n_mc_samples": 100,
     "min_ready_to_connect_prob": 0.9,
     "min_positive_pool_prob": 0.20,
+    # Exploit-mode search retry ceiling (pipeline/pools.py:qualify_source):
+    # how many fresh keyword searches to try, in one connect-task's
+    # candidate lookup, looking for a confident candidate before giving up
+    # and qualifying from whatever the existing pool has. Without a cap this
+    # loop's only stop condition is the campaign's entire keyword supply
+    # running dry (auto-refilled via the LLM) — real LinkedIn search traffic
+    # with no upper bound, on every account, every time the pool looks thin.
+    "max_search_attempts_per_qualify": 3,
     "embedding_model": "BAAI/bge-small-en-v1.5",
     "connect_delay_seconds": 10,
     "connect_no_candidate_delay_seconds": 300,

@@ -147,7 +147,13 @@ class TestQualifySource:
         mock_search.assert_not_called()
 
     def test_searches_until_exhausted_when_pool_empty_exploit(self):
-        """In exploit mode with empty positive pool, searches until search exhausts then qualifies."""
+        """In exploit mode with empty positive pool, searches until search exhausts then qualifies.
+
+        Keyword supply exhausts (returns None) before the attempt cap is
+        hit — this exercises the "search truly ran dry" exit, distinct
+        from the cap-hit exit covered by
+        test_search_capped_when_needs_search_never_flips below.
+        """
         scorer = BayesianQualifier(seed=42)
         candidates = [_make_candidate(1, np.zeros(384, dtype=np.float32))]
 
@@ -158,12 +164,48 @@ class TestQualifySource:
             patch.object(type(scorer), "class_counts", new_callable=PropertyMock, return_value=(5, 2)),
             patch("linkedin.pipeline.pools._needs_search", return_value=True),
             patch("linkedin.pipeline.pools.run_qualification", side_effect=["alice", None]),
-            patch("linkedin.pipeline.pools.run_search", side_effect=["kw1", "kw2", None]) as mock_search,
+            patch("linkedin.pipeline.pools.run_search", side_effect=["kw1", None]) as mock_search,
         ):
             results = list(qualify_source("session", scorer))
 
         assert results == ["alice"]
-        assert mock_search.call_count == 3  # kw1, kw2, None (exhausted)
+        assert mock_search.call_count == 2  # kw1, None (exhausted, under the cap)
+
+    def test_search_capped_when_needs_search_never_flips(self):
+        """Search stops at max_search_attempts_per_qualify even with an inexhaustible
+        keyword supply and a confidence bar that never clears.
+
+        Regression guard: without this cap, a campaign whose freshly-found
+        profiles never clear the exploit-mode threshold would search through
+        its entire keyword pool (auto-regenerated via the LLM once
+        exhausted) on every connect task — real, unbounded LinkedIn search
+        traffic, and the actual ban-risk bug this cap fixes.
+
+        Pulls a single result via ``next()`` rather than draining the whole
+        generator with ``list()`` — that's how ``ready_source`` actually
+        consumes it (one qualification per candidate-lookup attempt), and
+        the cap applies per such pull, not to the generator's whole
+        lifetime.
+        """
+        from linkedin.conf import CAMPAIGN_CONFIG
+
+        scorer = BayesianQualifier(seed=42)
+        candidates = [_make_candidate(1, np.zeros(384, dtype=np.float32))]
+        cap = CAMPAIGN_CONFIG["max_search_attempts_per_qualify"]
+
+        with (
+            patch("linkedin.pipeline.pools.has_qualification_candidates", return_value=True),
+            patch("linkedin.pipeline.pools.fetch_qualification_candidates", return_value=candidates),
+            patch.object(type(scorer), "class_counts", new_callable=PropertyMock, return_value=(5, 2)),
+            patch("linkedin.pipeline.pools._needs_search", return_value=True),  # never satisfied
+            patch("linkedin.pipeline.pools.run_qualification", return_value="alice"),
+            # Never returns None — an inexhaustible keyword supply
+            patch("linkedin.pipeline.pools.run_search", side_effect=lambda s: "kw") as mock_search,
+        ):
+            result = next(qualify_source("session", scorer))
+
+        assert result == "alice"
+        assert mock_search.call_count == cap
 
     def test_search_stops_when_pool_fills(self):
         """In exploit mode, searching stops when _needs_search flips to False."""

@@ -104,17 +104,31 @@ def launch_browser(storage_state=None, display: str | None = None):
     """
     logger.debug("Launching Playwright%s", f" on {display}" if display else "")
     playwright = sync_playwright().start()
-    # env= replaces the browser's whole environment rather than merging, so
-    # copy the current one and override only DISPLAY.
-    launch_env = {**os.environ, "DISPLAY": display} if display else None
-    browser = playwright.chromium.launch(
-        headless=False, slow_mo=BROWSER_SLOW_MO, env=launch_env,
-    )
-    context = browser.new_context(storage_state=storage_state)
-    context.set_default_timeout(BROWSER_DEFAULT_TIMEOUT_MS)
-    context.set_default_navigation_timeout(BROWSER_DEFAULT_TIMEOUT_MS)
-    Stealth().apply_stealth_sync(context)
-    page = context.new_page()
+    try:
+        # env= replaces the browser's whole environment rather than merging,
+        # so copy the current one and override only DISPLAY.
+        launch_env = {**os.environ, "DISPLAY": display} if display else None
+        browser = playwright.chromium.launch(
+            headless=False, slow_mo=BROWSER_SLOW_MO, env=launch_env,
+        )
+        context = browser.new_context(storage_state=storage_state)
+        context.set_default_timeout(BROWSER_DEFAULT_TIMEOUT_MS)
+        context.set_default_navigation_timeout(BROWSER_DEFAULT_TIMEOUT_MS)
+        Stealth().apply_stealth_sync(context)
+        page = context.new_page()
+    except Exception:
+        # A failure anywhere after .start() (Chromium can't launch because
+        # its X display isn't up, a stealth patch errors, ...) otherwise
+        # leaks this Playwright driver connection. Its sync-API dispatcher
+        # runs on a greenlet sharing this OS thread rather than a separate
+        # one, so a leaked connection leaves the thread's asyncio
+        # "currently running loop" marker stuck set — every later
+        # sync_playwright() call on this same worker thread then fails with
+        # "using Playwright Sync API inside the asyncio loop" instead of
+        # whatever actually went wrong, permanently breaking this account
+        # until the process restarts.
+        playwright.stop()
+        raise
     return page, context, browser, playwright
 
 

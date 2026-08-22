@@ -33,19 +33,35 @@ def has_qualification_candidates(session) -> bool:
     )
 
 
-def fetch_qualification_candidates(session):
+def fetch_qualification_candidates(session, *, newest_first: bool = False):
     """Return Lead rows (with embeddings) for leads awaiting qualification.
 
     One query, capped: the previous version read every unlabelled lead twice
     (once as dicts, once as full rows including the embedding blob) on every
     call, and ``ready_source`` calls this several times per iteration.
+
+    ``newest_first`` exists for exactly one caller: ``qualify_source``'s
+    exploit-mode retry loop, which re-fetches after every search to check
+    whether the profiles it just found are any good. With the default
+    oldest-first order, once a campaign's unlabelled backlog exceeds
+    ``MAX_QUALIFICATION_CANDIDATES`` a freshly-discovered profile — always
+    the newest row in the table — can never appear in the window at all, so
+    that check can never see what search just turned up. It then keeps
+    failing for reasons unrelated to the search results, driving the retry
+    loop through the entire keyword supply (LLM-regenerated once exhausted)
+    on every occurrence. The default stays oldest-first because ordering
+    doesn't matter for ``run_qualification``'s actual selection (BALD
+    acquisition picks the most informative lead regardless of list order) —
+    only which 300 are visible does, and oldest-first there preserves the
+    existing FIFO drain of the backlog.
     """
     from crm.models import Lead
 
+    order = "-creation_date" if newest_first else "creation_date"
     candidates = list(
         Lead.objects.filter(disqualified=False, embedding__isnull=False)
         .exclude(deal__campaign=session.campaign)
-        .order_by("creation_date")[:MAX_QUALIFICATION_CANDIDATES]
+        .order_by(order)[:MAX_QUALIFICATION_CANDIDATES]
     )
     if candidates:
         return candidates
