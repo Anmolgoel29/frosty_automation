@@ -22,3 +22,14 @@ class ReachedConnectionLimit(Exception):
     """ Weekly connection limit reached. """
     pass
 
+
+class ConnectClickFailed(Exception):
+    """A connect-flow button click failed (timeout, stale element, UI change).
+
+    Expected/recoverable — the connect button was found but interacting with
+    it didn't go through. Distinct from ProfileState.QUALIFIED (no button
+    found at all), but routed through the same connect_attempts retry/give-up
+    logic in tasks/connect.py.
+    """
+    pass
+

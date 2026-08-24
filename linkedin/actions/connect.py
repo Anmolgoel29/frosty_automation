@@ -2,8 +2,10 @@
 import logging
 from typing import Dict, Any
 
+from playwright.sync_api import Error as PlaywrightError
+
 from linkedin.enums import ProfileState
-from linkedin.exceptions import SkipProfile, ReachedConnectionLimit
+from linkedin.exceptions import SkipProfile, ReachedConnectionLimit, ConnectClickFailed
 from linkedin.browser.nav import find_top_card, dump_page_html
 
 logger = logging.getLogger(__name__)
@@ -46,13 +48,21 @@ def send_connection_request(
     """
     public_identifier = profile.get('public_identifier')
 
-    # Send invitation WITHOUT note (current active flow)
-    if not _connect_direct(session) and not _connect_via_more(session):
-        logger.debug("Connect button not found for %s — staying at current stage", public_identifier)
-        dump_page_html(session, profile)
-        return ProfileState.QUALIFIED
+    try:
+        # Send invitation WITHOUT note (current active flow)
+        if not _connect_direct(session) and not _connect_via_more(session):
+            logger.debug("Connect button not found for %s — staying at current stage", public_identifier)
+            dump_page_html(session, profile)
+            return ProfileState.QUALIFIED
 
-    _click_without_note(session)
+        _click_without_note(session)
+    except PlaywrightError as e:
+        # The button was there but clicking through the flow didn't go
+        # through (timeout, stale element, LinkedIn UI drift). Distinct from
+        # "no button found" above — caller retries a bounded number of times
+        # before giving up (see tasks/connect.py:MAX_CONNECT_ATTEMPTS).
+        raise ConnectClickFailed(f"Connect click failed for {public_identifier}: {e}") from e
+
     _check_weekly_invitation_limit(session)
 
     logger.debug("Connection request submitted for %s", public_identifier)

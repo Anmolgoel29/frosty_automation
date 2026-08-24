@@ -14,7 +14,9 @@ from linkedin.db.deals import increment_connect_attempts, set_profile_state
 from linkedin.db.leads import disqualify_lead
 from linkedin.models import ActionLog
 from linkedin.enums import ProfileState
-from linkedin.exceptions import ProfileInaccessibleError, ReachedConnectionLimit, SkipProfile
+from linkedin.exceptions import (
+    ConnectClickFailed, ProfileInaccessibleError, ReachedConnectionLimit, SkipProfile,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,24 @@ def strategy_for(campaign):
         pre_connect=None,
         delay=CAMPAIGN_CONFIG["connect_delay_seconds"],
     )
+
+
+def _retry_or_give_up(session, public_id: str, *, why: str) -> None:
+    """Track one failed connect attempt; disqualify after MAX_CONNECT_ATTEMPTS.
+
+    Shared by the "no Connect button found" and "button click failed" paths —
+    both are attempts on the same lead that didn't produce a sent invite, so
+    they share one counter and one give-up threshold.
+    """
+    attempts = increment_connect_attempts(session, public_id)
+    if attempts >= MAX_CONNECT_ATTEMPTS:
+        reason = f"Unreachable: {why} after {attempts} attempts"
+        disqualify_lead(public_id)
+        set_profile_state(session, public_id, ProfileState.FAILED.value, reason=reason)
+        logger.warning("Disqualified %s — %s", public_id, reason)
+    else:
+        set_profile_state(session, public_id, ProfileState.QUALIFIED.value)
+        logger.debug("%s: connect attempt %d/%d — %s", public_id, attempts, MAX_CONNECT_ATTEMPTS, why)
 
 
 def handle_connect(task, session):
@@ -108,16 +128,7 @@ def handle_connect(task, session):
         new_state = send_connection_request(session=session, profile=profile)
 
         if new_state == ProfileState.QUALIFIED:
-            # No Connect button found — track attempt, disqualify after MAX_CONNECT_ATTEMPTS
-            attempts = increment_connect_attempts(session, public_id)
-            if attempts >= MAX_CONNECT_ATTEMPTS:
-                reason = f"Unreachable: no Connect button after {attempts} attempts"
-                disqualify_lead(public_id)
-                set_profile_state(session, public_id, ProfileState.FAILED.value, reason=reason)
-                logger.warning("Disqualified %s — %s", public_id, reason)
-            else:
-                set_profile_state(session, public_id, new_state.value)
-                logger.debug("%s: connect attempt %d/%d — no button found", public_id, attempts, MAX_CONNECT_ATTEMPTS)
+            _retry_or_give_up(session, public_id, why="no Connect button found")
         else:
             set_profile_state(session, public_id, new_state.value)
             account.record_action(ActionLog.ActionType.CONNECT, session.campaign)
@@ -134,6 +145,9 @@ def handle_connect(task, session):
     except SkipProfile as e:
         logger.warning("Skipping %s: %s", public_id, e)
         set_profile_state(session, public_id, ProfileState.FAILED.value)
+    except ConnectClickFailed as e:
+        logger.warning("Connect click failed for %s: %s", public_id, e)
+        _retry_or_give_up(session, public_id, why="connect click failed")
 
     _reschedule()
 
