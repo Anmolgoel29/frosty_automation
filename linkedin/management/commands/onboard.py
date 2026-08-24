@@ -26,12 +26,12 @@ class Command(BaseCommand):
         parser.add_argument("--campaign-objective", default="")
         parser.add_argument("--booking-link", default="")
         parser.add_argument("--seed-urls", default="")
-        parser.add_argument("--chat-llm-api-key", default="")
-        parser.add_argument("--chat-ai-model", default="")
-        parser.add_argument("--chat-llm-api-base", default="")
-        parser.add_argument("--task-llm-api-key", default="")
-        parser.add_argument("--task-ai-model", default="")
-        parser.add_argument("--task-llm-api-base", default="")
+        parser.add_argument("--expensive-llm-api-key", default="")
+        parser.add_argument("--expensive-ai-model", default="")
+        parser.add_argument("--expensive-llm-api-base", default="")
+        parser.add_argument("--cheap-llm-api-key", default="")
+        parser.add_argument("--cheap-ai-model", default="")
+        parser.add_argument("--cheap-llm-api-base", default="")
         parser.add_argument("--newsletter", action="store_true", default=False)
         parser.add_argument("--no-newsletter", dest="newsletter", action="store_false")
         parser.add_argument("--connect-daily-limit", type=int, default=DEFAULT_CONNECT_DAILY_LIMIT)
@@ -67,12 +67,12 @@ class Command(BaseCommand):
                 campaign_objective=options["campaign_objective"],
                 booking_link=options["booking_link"],
                 seed_urls=options["seed_urls"],
-                chat_llm_api_key=options["chat_llm_api_key"],
-                chat_ai_model=options["chat_ai_model"],
-                chat_llm_api_base=options["chat_llm_api_base"],
-                task_llm_api_key=options["task_llm_api_key"],
-                task_ai_model=options["task_ai_model"],
-                task_llm_api_base=options["task_llm_api_base"],
+                expensive_llm_api_key=options["expensive_llm_api_key"],
+                expensive_ai_model=options["expensive_ai_model"],
+                expensive_llm_api_base=options["expensive_llm_api_base"],
+                cheap_llm_api_key=options["cheap_llm_api_key"],
+                cheap_ai_model=options["cheap_ai_model"],
+                cheap_llm_api_base=options["cheap_llm_api_base"],
                 newsletter=options["newsletter"],
                 connect_daily_limit=options["connect_daily_limit"],
                 connect_weekly_limit=options["connect_weekly_limit"],

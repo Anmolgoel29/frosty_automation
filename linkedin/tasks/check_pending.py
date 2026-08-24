@@ -34,7 +34,7 @@ def _bump_backoff(session, public_id: str, current_hours: float) -> float:
     return new_backoff
 
 
-def handle_check_pending(task, session, qualifiers):
+def handle_check_pending(task, session):
     from linkedin.actions.status import get_connection_status
 
     payload = task.payload

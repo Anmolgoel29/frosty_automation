@@ -46,11 +46,12 @@ def resolve_profile(username: str | None = None):
 
 
 def cli_parser(description: str):
-    """Bootstrap Django and return an ArgumentParser with ``--handle``.
+    """Bootstrap Django and return an ArgumentParser with ``--handle``/``--headless``.
 
     Call from ``if __name__ == "__main__"`` blocks. Sets up Django,
-    configures logging, and returns a parser with ``--handle`` pre-added.
-    After adding extra arguments, call ``cli_session(args)`` to get the session.
+    configures logging, and returns a parser with ``--handle`` and
+    ``--headless`` pre-added. After adding extra arguments, call
+    ``cli_session(args)`` to get the session.
     """
     import argparse
     import os
@@ -68,6 +69,10 @@ def cli_parser(description: str):
 
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--handle", default=None, help="Django username (default: first active profile)")
+    parser.add_argument(
+        "--headless", action="store_true",
+        help="Launch a headless browser instead of a headed one (no VNC display needed)",
+    )
     return parser
 
 
@@ -83,4 +88,5 @@ def cli_session(args) -> "AccountSession":
         logger.error("No campaigns found for %s.", linkedin_profile)
         raise SystemExit(1)
     session.campaign = session.campaigns[0]
+    session.headless = args.headless
     return session

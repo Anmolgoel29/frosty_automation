@@ -114,6 +114,10 @@ class AccountSession:
         # The X display this account's browser draws on, once claimed.
         self._display = None
 
+        # Headed by default (VNC watching, stealth posture). CLI debug
+        # scripts may flip this via --headless; the daemon never touches it.
+        self.headless = False
+
         # Last time the stored auth cookie was checked for expiry.
         self._last_cookie_check = 0.0
 

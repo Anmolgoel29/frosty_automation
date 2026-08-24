@@ -63,7 +63,7 @@ def _too_soon_to_nudge(deal, unanswered: int) -> bool:
     return timezone.now() - last.creation_date < required
 
 
-def handle_follow_up(task, session, qualifiers):
+def handle_follow_up(task, session):
     from crm.models import Deal
     from linkedin.actions.message import send_raw_message
     from linkedin.agents.follow_up import run_follow_up_agent

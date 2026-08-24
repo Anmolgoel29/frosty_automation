@@ -17,6 +17,18 @@ class Lead(models.Model):
     public_identifier = models.CharField(max_length=200, unique=True)
     urn = models.CharField(max_length=200, null=True, blank=True, unique=True, db_index=True)
     embedding = models.BinaryField(null=True, blank=True)
+    # Coarse, campaign-agnostic facts captured once at discovery (see
+    # db/leads.py:create_enriched_lead) from the profile dict already in
+    # hand — no extra scrape. `headline` + `about` are the only two the
+    # cheap qualification prefilter sees (ml/qualifier.py:qualify_cheap);
+    # the rest back the admin lead list. `about` is the profile's About
+    # section, untruncated, so TextField rather than CharField.
+    headline = models.CharField(max_length=500, blank=True, default="")
+    about = models.TextField(blank=True, default="")
+    current_title = models.CharField(max_length=200, blank=True, default="")
+    current_company = models.CharField(max_length=200, blank=True, default="")
+    industry = models.CharField(max_length=200, blank=True, default="")
+    location_name = models.CharField(max_length=200, blank=True, default="")
     disqualified = models.BooleanField(default=False)
     human_takeover = models.BooleanField(
         default=False,
@@ -129,49 +141,3 @@ class Lead(models.Model):
     @embedding_array.setter
     def embedding_array(self, arr: np.ndarray):
         self.embedding = np.asarray(arr, dtype=np.float32).tobytes()
-
-    @classmethod
-    def get_labeled_arrays(cls, campaign) -> tuple[np.ndarray, np.ndarray]:
-        """Labeled embeddings for a campaign as (X, y) numpy arrays for warm start.
-
-        Labels are derived from Deal state and outcome:
-        - label=1: Deals at any non-FAILED state (QUALIFIED and beyond)
-        - label=0: FAILED Deals with outcome "wrong_fit" (LLM rejection)
-        - Skipped: FAILED Deals with other outcomes (operational failures)
-        """
-        from crm.models import Outcome
-        from crm.models.deal import Deal
-        from linkedin.enums import ProfileState
-
-        deals = Deal.objects.filter(
-            campaign=campaign, lead_id__isnull=False,
-        ).values_list("lead_id", "state", "outcome")
-
-        label_by_lead: dict[int, int] = {}
-        for lid, state, outcome in deals:
-            if state == ProfileState.FAILED:
-                if outcome == Outcome.WRONG_FIT:
-                    label_by_lead[lid] = 0
-            else:
-                label_by_lead[lid] = 1
-
-        if not label_by_lead:
-            return np.empty((0, 384), dtype=np.float32), np.empty(0, dtype=np.int32)
-
-        leads_with_emb = dict(
-            cls.objects.filter(pk__in=label_by_lead, embedding__isnull=False)
-            .values_list("pk", "embedding")
-        )
-
-        X_list, y_list = [], []
-        for lid, label in label_by_lead.items():
-            emb = leads_with_emb.get(lid)
-            if emb is None:
-                continue
-            X_list.append(np.frombuffer(bytes(emb), dtype=np.float32))
-            y_list.append(label)
-
-        if not X_list:
-            return np.empty((0, 384), dtype=np.float32), np.empty(0, dtype=np.int32)
-
-        return np.array(X_list, dtype=np.float32), np.array(y_list, dtype=np.int32)

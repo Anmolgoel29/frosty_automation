@@ -7,9 +7,9 @@ collector path is appended automatically if missing). Once enabled, every
 LLM call in the process is traced: ``Agent.instrument_all()`` sets pydantic-ai's
 process-wide instrumentation default, which every ``Agent(...)`` call site in
 ``linkedin/`` picks up automatically (none of them pass ``instrument=``
-explicitly) — the qualifier, search-keyword generator, fact
-extraction/reconciliation, and the follow-up messaging agent, across both the
-"chat" and "task" model roles.
+explicitly) — both qualification-cascade stages, search-keyword generator,
+fact extraction/reconciliation, and the follow-up messaging agent, across
+both the "expensive" and "cheap" model roles.
 """
 from __future__ import annotations
 

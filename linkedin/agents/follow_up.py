@@ -181,7 +181,7 @@ def run_follow_up_agent(session, deal) -> FollowUpDecision:
     system_prompt = _render_system_prompt(session, deal, recent)
 
     agent = Agent(
-        get_llm_model("chat"),
+        get_llm_model("expensive"),
         output_type=FollowUpDecision,
         model_settings={"temperature": 0.7, "timeout": 60},
     )

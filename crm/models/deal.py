@@ -52,6 +52,12 @@ class Deal(models.Model):
         default="",
     )
     reason = models.TextField(blank=True, default="")
+    # 1-5 self-rating from the expensive qualification stage (ml/qualifier.py:
+    # qualify_with_llm). Null until qualified. Drives both the
+    # QUALIFIED -> READY_TO_CONNECT promotion gate (pipeline/ready_pool.py)
+    # and connect-order ranking (db/deals.py:get_ready_to_connect_profiles) —
+    # the replacement for the old GP posterior on both counts.
+    fit_score = models.IntegerField(null=True, blank=True, default=None)
     connect_attempts = models.IntegerField(default=0)
     backoff_hours = models.IntegerField(default=0)
     profile_summary = models.JSONField(null=True, blank=True, default=None)

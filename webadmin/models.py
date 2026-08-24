@@ -65,14 +65,14 @@ class SiteConfig(Base):
     __tablename__ = "linkedin_siteconfig"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    chat_llm_provider: Mapped[str] = mapped_column(String(32), default="openai")
-    chat_llm_api_key: Mapped[str] = mapped_column(String(500), default="")
-    chat_ai_model: Mapped[str] = mapped_column(String(200), default="")
-    chat_llm_api_base: Mapped[str] = mapped_column(String(500), default="")
-    task_llm_provider: Mapped[str] = mapped_column(String(32), default="openai")
-    task_llm_api_key: Mapped[str] = mapped_column(String(500), default="")
-    task_ai_model: Mapped[str] = mapped_column(String(200), default="")
-    task_llm_api_base: Mapped[str] = mapped_column(String(500), default="")
+    expensive_llm_provider: Mapped[str] = mapped_column(String(32), default="openai")
+    expensive_llm_api_key: Mapped[str] = mapped_column(String(500), default="")
+    expensive_ai_model: Mapped[str] = mapped_column(String(200), default="")
+    expensive_llm_api_base: Mapped[str] = mapped_column(String(500), default="")
+    cheap_llm_provider: Mapped[str] = mapped_column(String(32), default="openai")
+    cheap_llm_api_key: Mapped[str] = mapped_column(String(500), default="")
+    cheap_ai_model: Mapped[str] = mapped_column(String(200), default="")
+    cheap_llm_api_base: Mapped[str] = mapped_column(String(500), default="")
 
     def __str__(self) -> str:
         return "Site Configuration"
@@ -89,7 +89,6 @@ class Campaign(Base):
     is_freemium: Mapped[bool] = mapped_column(Boolean, default=False)
     action_fraction: Mapped[float] = mapped_column(Float, default=0.2)
     seed_public_ids: Mapped[list] = mapped_column(JSON, default=list)
-    model_blob: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     assignment_cursor: Mapped[int] = mapped_column(Integer, default=0)
 
     users: Mapped[list[User]] = relationship(secondary=campaign_users)
@@ -106,6 +105,12 @@ class Lead(Base):
     public_identifier: Mapped[str] = mapped_column(String(200), unique=True)
     urn: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True)
     embedding: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    headline: Mapped[str] = mapped_column(String(500), default="")
+    about: Mapped[str] = mapped_column(Text, default="")
+    current_title: Mapped[str] = mapped_column(String(200), default="")
+    current_company: Mapped[str] = mapped_column(String(200), default="")
+    industry: Mapped[str] = mapped_column(String(200), default="")
+    location_name: Mapped[str] = mapped_column(String(200), default="")
     disqualified: Mapped[bool] = mapped_column(Boolean, default=False)
     human_takeover: Mapped[bool] = mapped_column(Boolean, default=False)
     creation_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -217,6 +222,7 @@ class Deal(Base):
     state: Mapped[str] = mapped_column(String(20), default="Qualified")
     outcome: Mapped[str] = mapped_column(String(20), default="")
     reason: Mapped[str] = mapped_column(Text, default="")
+    fit_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     connect_attempts: Mapped[int] = mapped_column(Integer, default=0)
     backoff_hours: Mapped[int] = mapped_column(Integer, default=0)
     profile_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)

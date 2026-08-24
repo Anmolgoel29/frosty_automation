@@ -3,9 +3,12 @@
 Two public entry points:
 
 - `get_llm_model(role)` — builds a `pydantic_ai.Model` from `SiteConfig`,
-  routing to the right provider. `role` selects which of the two
-  independently-configured models to use: "chat" (higher-end, the
-  follow-up messaging agent) or "task" (cheaper/faster, everything else).
+  routing to the right provider. `role` selects which of two
+  independently-configured models to use: "expensive" (the general-purpose,
+  higher-end model — follow-up messaging, search-keyword generation, fact
+  extraction/reconcile, and the real qualify/reject + fit-score call) or
+  "cheap" (fast/cheap, used in exactly one place: the disqualify-only
+  qualification prefilter on a handful of coarse profile fields).
 - `run_agent_sync(coro)` — drives a pydantic-ai coroutine to completion
   from sync code, on a dedicated worker thread with a long-lived event
   loop. Used everywhere instead of `Agent.run_sync`.
@@ -35,7 +38,7 @@ from typing import Awaitable, Callable, Literal, TypeVar
 
 _T = TypeVar("_T")
 
-Role = Literal["chat", "task"]
+Role = Literal["expensive", "cheap"]
 
 # Override the SDK default of 2. Each retry uses the SDK's built-in jittered
 # exponential backoff and honors `Retry-After`, so 8 attempts ride through
@@ -178,10 +181,13 @@ def _validated_role_config(role: Role):
 def get_llm_model(role: Role):
     """Return a configured pydantic-ai `Model` for the given role.
 
-    `role="chat"` is the higher-end model used by the follow-up messaging
-    agent (the only place that composes text sent to leads). `role="task"`
-    is the cheaper/faster model used for everything else — qualification,
-    search-keyword generation, fact extraction/reconcile.
+    `role="expensive"` is the general-purpose, higher-end model — used by
+    the follow-up messaging agent (the only place that composes text sent
+    to leads), search-keyword generation, fact extraction/reconcile, and
+    the expensive stage of lead qualification (pipeline/qualify.py).
+    `role="cheap"` is used in exactly one place: the fast/cheap
+    disqualify-only prefilter that runs before "expensive" ever sees a
+    candidate.
     """
     provider, model_name, api_key, api_base = _validated_role_config(role)
     builder = _PROVIDER_BUILDERS.get(provider)

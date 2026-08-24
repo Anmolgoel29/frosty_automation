@@ -42,7 +42,7 @@ def generate_search_keywords(
     )
 
     agent = Agent(
-        get_llm_model("task"),
+        get_llm_model("expensive"),
         output_type=SearchKeywords,
         model_settings={"temperature": 0.9},
     )

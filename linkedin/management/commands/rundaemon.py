@@ -71,9 +71,9 @@ class Command(BaseCommand):
         from linkedin.models import SiteConfig
 
         cfg = SiteConfig.load()
-        if not cfg.chat_llm_api_key or not cfg.task_llm_api_key:
+        if not cfg.expensive_llm_api_key or not cfg.cheap_llm_api_key:
             logger.error(
-                "CHAT_LLM_API_KEY and TASK_LLM_API_KEY are both required. "
+                "EXPENSIVE_LLM_API_KEY and CHEAP_LLM_API_KEY are both required. "
                 "Set them in Site Configuration (Django Admin)."
             )
             sys.exit(1)

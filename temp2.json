@@ -1,0 +1,535 @@
+{
+  "data": {
+    "data": {
+      "organizationDashCompaniesByViewerPermissions": {
+        "paging": {
+          "count": 3,
+          "start": 0,
+          "total": 0,
+          "$recipeTypes": [
+            "com.linkedin.09c6742a53ab74263a7cf061950811aa"
+          ],
+          "$type": "com.linkedin.restli.common.CollectionMetadata"
+        },
+        "$recipeTypes": [
+          "com.linkedin.4575a22569463cc22acca81190a12148"
+        ],
+        "elements": [],
+        "$type": "com.linkedin.restli.common.CollectionResponse"
+      },
+      "$recipeTypes": [
+        "com.linkedin.cc768371dd2487da2464431307cdff1d"
+      ],
+      "$type": "com.linkedin.cc768371dd2487da2464431307cdff1d"
+    },
+    "extensions": {
+      "webMetadata": {}
+    }
+  },
+  "meta": {
+    "microSchema": {
+      "isGraphQL": true,
+      "version": "2.1",
+      "types": {
+        "com.linkedin.cc768371dd2487da2464431307cdff1d": {
+          "fields": {
+            "organizationDashCompaniesByViewerPermissions": {
+              "type": "com.linkedin.4575a22569463cc22acca81190a12148"
+            }
+          },
+          "baseType": "com.linkedin.graphql.Query"
+        },
+        "com.linkedin.78630c656bb3353ae77fec1f83af6a3a": {
+          "fields": {
+            "x": {
+              "type": "int"
+            },
+            "width": {
+              "type": "int"
+            },
+            "y": {
+              "type": "int"
+            },
+            "height": {
+              "type": "int"
+            }
+          },
+          "baseType": "com.linkedin.common.Rectangle"
+        },
+        "com.linkedin.b2f371f0f2279c68673d015f6d6c0603": {
+          "fields": {
+            "isAiGenerated": {
+              "type": "boolean"
+            },
+            "signature": {
+              "type": "com.linkedin.54fb9db44e2770f2f77224a891c44dd0"
+            },
+            "appOrDeviceUsed": {
+              "type": "string"
+            },
+            "aiUsageType": {
+              "type": "pegasus.com.linkedin.mediaInfra.AiUsageType"
+            },
+            "isValid": {
+              "type": "boolean"
+            }
+          },
+          "baseType": "pegasus.com.linkedin.mediaInfra.C2paManifestData"
+        },
+        "com.linkedin.4575a22569463cc22acca81190a12148": {
+          "fields": {
+            "paging": {
+              "type": "com.linkedin.09c6742a53ab74263a7cf061950811aa"
+            },
+            "elements": {
+              "type": {
+                "array": "com.linkedin.5a4837ba1343e006287a26c122eaea68"
+              }
+            }
+          },
+          "baseType": "com.linkedin.restli.common.CollectionResponse"
+        },
+        "com.linkedin.281ebfb859e5e45f5116256235c8ea7e": {
+          "fields": {
+            "localizedName": {
+              "type": "string"
+            },
+            "role": {
+              "type": "com.linkedin.voyager.dash.organization.Role"
+            },
+            "paidMediaRole": {
+              "type": "boolean"
+            },
+            "localizedDescription": {
+              "type": "string"
+            }
+          },
+          "baseType": "com.linkedin.voyager.dash.organization.OrganizationRoleType"
+        },
+        "com.linkedin.fa9aa49d5d2f78bd13bc17f531588109": {
+          "fields": {
+            "attribution": {
+              "type": "string"
+            },
+            "c2paManifestData": {
+              "type": "com.linkedin.b2f371f0f2279c68673d015f6d6c0603"
+            },
+            "digitalmediaAsset": {
+              "type": "com.linkedin.common.DigitalmediaAssetUrn"
+            },
+            "rootUrl": {
+              "type": "string"
+            },
+            "artifacts": {
+              "type": {
+                "array": "com.linkedin.ec0d1e45d5d2e9cc48b99718fcb68975"
+              }
+            }
+          },
+          "baseType": "com.linkedin.common.VectorImage"
+        },
+        "com.linkedin.09c6742a53ab74263a7cf061950811aa": {
+          "fields": {
+            "start": {
+              "type": "int"
+            },
+            "count": {
+              "type": "int"
+            },
+            "total": {
+              "type": "int"
+            }
+          },
+          "baseType": "com.linkedin.restli.common.CollectionMetadata"
+        },
+        "com.linkedin.54fb9db44e2770f2f77224a891c44dd0": {
+          "fields": {
+            "credentialIssuedAt": {
+              "type": "long"
+            },
+            "credentialIssuer": {
+              "type": "string"
+            },
+            "issuedAt": {
+              "type": "long"
+            },
+            "issuer": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "long"
+            },
+            "signer": {
+              "type": "string"
+            }
+          },
+          "baseType": "pegasus.com.linkedin.mediaInfra.C2paSignature"
+        },
+        "com.linkedin.4aea1ee47d15754981448dba5a58ccc9": {
+          "fields": {
+            "followeeCount": {
+              "type": "long"
+            },
+            "entityUrn": {
+              "type": "com.linkedin.voyager.dash.common.FollowingStateUrn"
+            },
+            "preDashFollowingInfoUrn": {
+              "type": "com.linkedin.voyager.dash.common.PreDashUrn"
+            },
+            "trackingUrn": {
+              "type": "com.linkedin.common.Urn"
+            },
+            "following": {
+              "type": "boolean"
+            },
+            "followingType": {
+              "type": "com.linkedin.voyager.dash.feed.FollowingType"
+            },
+            "followerCount": {
+              "type": "long"
+            }
+          },
+          "baseType": "com.linkedin.voyager.dash.feed.FollowingState"
+        },
+        "com.linkedin.f23fab418c14e9a321f0ca75d53db6c9": {
+          "fields": {
+            "totalCount": {
+              "type": "int"
+            },
+            "adminRequestCount": {
+              "type": "int"
+            }
+          },
+          "baseType": "com.linkedin.voyager.dash.organization.notifications.NotificationCounts"
+        },
+        "com.linkedin.ec0d1e45d5d2e9cc48b99718fcb68975": {
+          "fields": {
+            "width": {
+              "type": "int"
+            },
+            "fileIdentifyingUrlPathSegment": {
+              "type": "string"
+            },
+            "expiresAt": {
+              "type": "com.linkedin.common.Time"
+            },
+            "height": {
+              "type": "int"
+            }
+          },
+          "baseType": "com.linkedin.common.VectorArtifact"
+        },
+        "com.linkedin.421971d90801ae51b6c38c58783d9fa7": {
+          "fields": {
+            "elements": {
+              "type": {
+                "array": "com.linkedin.f23fab418c14e9a321f0ca75d53db6c9"
+              }
+            }
+          },
+          "baseType": "com.linkedin.restli.common.CollectionResponse"
+        },
+        "com.linkedin.5a4837ba1343e006287a26c122eaea68": {
+          "fields": {
+            "coverImageCropInfo": {
+              "type": "com.linkedin.78630c656bb3353ae77fec1f83af6a3a"
+            },
+            "viewerPermissions": {
+              "type": "com.linkedin.c9e28c726a71ca9cec3cffb39f9a7646"
+            },
+            "originalCoverImage": {
+              "derivedFrom": "originalCoverImageUnion",
+              "type": {
+                "union": {
+                  "url": "com.linkedin.common.Url",
+                  "vectorImage": "com.linkedin.fa9aa49d5d2f78bd13bc17f531588109"
+                }
+              }
+            },
+            "croppedCoverImageUnion": {
+              "type": {
+                "union": {
+                  "url": "com.linkedin.common.Url",
+                  "vectorImage": "com.linkedin.fa9aa49d5d2f78bd13bc17f531588109"
+                }
+              }
+            },
+            "url": {
+              "type": "com.linkedin.common.Url"
+            },
+            "pageType": {
+              "type": "com.linkedin.voyager.dash.organization.OrganizationPageType"
+            },
+            "followingStateUrn": {
+              "type": "string"
+            },
+            "entityUrn": {
+              "type": "com.linkedin.voyager.dash.common.CompanyUrn"
+            },
+            "followingState": {
+              "resolvedFrom": "followingStateUrn",
+              "type": "com.linkedin.4aea1ee47d15754981448dba5a58ccc9"
+            },
+            "originalCoverImageUnion": {
+              "type": {
+                "union": {
+                  "url": "com.linkedin.common.Url",
+                  "vectorImage": "com.linkedin.fa9aa49d5d2f78bd13bc17f531588109"
+                }
+              }
+            },
+            "croppedCoverImage": {
+              "derivedFrom": "croppedCoverImageUnion",
+              "type": {
+                "union": {
+                  "url": "com.linkedin.common.Url",
+                  "vectorImage": "com.linkedin.fa9aa49d5d2f78bd13bc17f531588109"
+                }
+              }
+            },
+            "name": {
+              "type": "string"
+            },
+            "logo": {
+              "type": {
+                "union": {
+                  "url": "com.linkedin.common.Url",
+                  "vectorImage": "com.linkedin.fa9aa49d5d2f78bd13bc17f531588109"
+                }
+              }
+            },
+            "logoResolutionResult": {
+              "derivedFrom": "logo",
+              "type": {
+                "union": {
+                  "url": "com.linkedin.common.Url",
+                  "vectorImage": "com.linkedin.fa9aa49d5d2f78bd13bc17f531588109"
+                }
+              }
+            },
+            "notificationCounts": {
+              "type": "com.linkedin.421971d90801ae51b6c38c58783d9fa7",
+              "isInjection": true
+            },
+            "visitorsInPastMonthCount": {
+              "type": "long"
+            },
+            "universalName": {
+              "type": "string"
+            }
+          },
+          "baseType": "com.linkedin.voyager.dash.organization.Company"
+        },
+        "com.linkedin.c9e28c726a71ca9cec3cffb39f9a7646": {
+          "fields": {
+            "canCreateBroadcast": {
+              "type": "boolean"
+            },
+            "canReadContentSuggestions": {
+              "type": "boolean"
+            },
+            "canSeeProducts": {
+              "type": "boolean"
+            },
+            "canUpdateOrganizationProfile": {
+              "type": "boolean"
+            },
+            "canSponsorShare": {
+              "type": "boolean"
+            },
+            "canEditPendingDirectSponsoredContentPosters": {
+              "type": "boolean"
+            },
+            "canUntagFromMention": {
+              "type": "boolean"
+            },
+            "canReadAdminFeedFollowingPill": {
+              "type": "boolean"
+            },
+            "canReadOrganizationActivity": {
+              "type": "boolean"
+            },
+            "canManageCareerPages": {
+              "type": "boolean"
+            },
+            "canAssociateHashtag": {
+              "type": "boolean"
+            },
+            "canDeleteShare": {
+              "type": "boolean"
+            },
+            "canInviteMemberToFollow": {
+              "type": "boolean"
+            },
+            "canReadBroadcastAnalytics": {
+              "type": "boolean"
+            },
+            "canEditPipelineBuilderAdministrators": {
+              "type": "boolean"
+            },
+            "canManageMessagingAccess": {
+              "type": "boolean"
+            },
+            "canReadPipelineBuilderAdminPage": {
+              "type": "boolean"
+            },
+            "canMembersInviteToFollow": {
+              "type": "boolean"
+            },
+            "canDeactivateOrganization": {
+              "type": "boolean"
+            },
+            "canCreateOrganicShare": {
+              "type": "boolean"
+            },
+            "canNotifyEmployeesOfShare": {
+              "type": "boolean"
+            },
+            "canEditDarkShare": {
+              "type": "boolean"
+            },
+            "canReadOrganizationLeadsAnalytics": {
+              "type": "boolean"
+            },
+            "canEnableCommentsShare": {
+              "type": "boolean"
+            },
+            "canDeleteDarkShare": {
+              "type": "boolean"
+            },
+            "canCreateJobPosting": {
+              "type": "boolean"
+            },
+            "canEditLeadGenerationFormManagers": {
+              "type": "boolean"
+            },
+            "canReadMessages": {
+              "type": "boolean"
+            },
+            "canReadOrganizationTalentBrandAnalytics": {
+              "type": "boolean"
+            },
+            "canEditDirectSponsoredContentPosters": {
+              "type": "boolean"
+            },
+            "canPinShare": {
+              "type": "boolean"
+            },
+            "canCreateLinkedInPagesProductFeedBack": {
+              "type": "boolean"
+            },
+            "canReadPipelineBuilderAdministrators": {
+              "type": "boolean"
+            },
+            "canReadEvents": {
+              "type": "boolean"
+            },
+            "organizationRoles": {
+              "type": {
+                "array": "com.linkedin.281ebfb859e5e45f5116256235c8ea7e"
+              }
+            },
+            "canEditEvents": {
+              "type": "boolean"
+            },
+            "canManageOrganizationalPageFollow": {
+              "type": "boolean"
+            },
+            "canCreateComment": {
+              "type": "boolean"
+            },
+            "canReadOrganizationUpdateAnalytics": {
+              "type": "boolean"
+            },
+            "canRequestAdminAccess": {
+              "type": "boolean"
+            },
+            "canEditAdministrators": {
+              "type": "boolean"
+            },
+            "canCreateDarkShare": {
+              "type": "boolean"
+            },
+            "canSeeEmployeeExperienceAsMember": {
+              "type": "boolean"
+            },
+            "canEmployeesInviteToFollow": {
+              "type": "boolean"
+            },
+            "canReadAdministrators": {
+              "type": "boolean"
+            },
+            "canExportLeads": {
+              "type": "boolean"
+            },
+            "canReadDirectSponsoredContentPosters": {
+              "type": "boolean"
+            },
+            "canCreateShowcase": {
+              "type": "boolean"
+            },
+            "canManageEmployeeExperienceSettings": {
+              "type": "boolean"
+            },
+            "canReadLeadGenerationFormManagers": {
+              "type": "boolean"
+            },
+            "canReadOrganizationVisitorAnalytics": {
+              "type": "boolean"
+            },
+            "canReadPendingAdministrators": {
+              "type": "boolean"
+            },
+            "canEditProducts": {
+              "type": "boolean"
+            },
+            "canEditCurators": {
+              "type": "boolean"
+            },
+            "canManageVerifiedEmailDomains": {
+              "type": "boolean"
+            },
+            "canReadPendingDirectSponsoredContentPosters": {
+              "type": "boolean"
+            },
+            "canReadTermsAndAgreements": {
+              "type": "boolean"
+            },
+            "canEditPipelineBuilderAdminPage": {
+              "type": "boolean"
+            },
+            "canReadOrganizationFollowerAnalytics": {
+              "type": "boolean"
+            },
+            "canManageOrganizationCompetitors": {
+              "type": "boolean"
+            },
+            "canSendMessages": {
+              "type": "boolean"
+            },
+            "canDisableCommentsShare": {
+              "type": "boolean"
+            },
+            "canCreateReaction": {
+              "type": "boolean"
+            },
+            "canEditPendingAdministrators": {
+              "type": "boolean"
+            },
+            "canReadOrganizationPipelineBuilderAnalytics": {
+              "type": "boolean"
+            },
+            "canNotifyEmployees": {
+              "type": "boolean"
+            },
+            "canSeeOrganizationAdministrativePage": {
+              "type": "boolean"
+            }
+          },
+          "baseType": "com.linkedin.voyager.dash.organization.OrganizationPermissions"
+        }
+      }
+    }
+  },
+  "included": []
+}

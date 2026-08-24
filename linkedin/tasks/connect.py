@@ -26,28 +26,24 @@ class ConnectStrategy:
     find_candidate: Callable
     pre_connect: Callable | None
     delay: float
-    qualifier: object
 
     def compute_delay(self, elapsed: float) -> float:
         """Delay until next connect."""
         return self.delay
 
 
-def strategy_for(campaign, qualifiers):
+def strategy_for(campaign):
     """Build the connect strategy for a campaign."""
-    qualifier = qualifiers.get(campaign.pk)
-
     from linkedin.pipeline.pools import find_candidate
 
     return ConnectStrategy(
-        find_candidate=lambda s: find_candidate(s, qualifier),
+        find_candidate=find_candidate,
         pre_connect=None,
         delay=CAMPAIGN_CONFIG["connect_delay_seconds"],
-        qualifier=qualifier,
     )
 
 
-def handle_connect(task, session, qualifiers):
+def handle_connect(task, session):
     from linkedin.actions.connect import send_connection_request
     from linkedin.actions.status import get_connection_status
     from linkedin.tasks.scheduler import enqueue_connect, seconds_until_tomorrow
@@ -58,7 +54,7 @@ def handle_connect(task, session, qualifiers):
     # The LinkedIn account running this task — its own connect loop, its own
     # rate limits, and the owner of whatever lead it reaches out to.
     account = session.linkedin_profile
-    strategy = strategy_for(campaign, qualifiers)
+    strategy = strategy_for(campaign)
 
     def _reschedule():
         elapsed = (timezone.now() - task.started_at).total_seconds() if task.started_at else 0
@@ -91,7 +87,7 @@ def handle_connect(task, session, qualifiers):
         campaign=session.campaign,
     ).first()
     reason = deal.reason if deal else ""
-    stats = strategy.qualifier.explain(candidate, session) if strategy.qualifier else ""
+    stats = f"fit_score={deal.fit_score}" if deal and deal.fit_score is not None else ""
     logger.info(
         "[%s] %s as %s",
         campaign, colored("\u25b6 connect", "cyan", attrs=["bold"]), account.linkedin_username,

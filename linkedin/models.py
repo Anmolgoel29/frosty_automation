@@ -20,12 +20,15 @@ _RATE_LIMIT_FIELDS = {
 class SiteConfig(models.Model):
     """Singleton model for global site configuration (LLM keys, etc.).
 
-    Two independent LLM configurations: `chat_*` powers the follow-up
-    messaging agent (the only place that composes text sent to leads) and
-    is meant for a higher-end model. `task_*` powers everything else
-    (qualification, search-keyword generation, fact extraction/reconcile)
-    and is meant for a cheaper/faster model. Each has its own provider, key,
+    Two independent LLM configurations, each with its own provider, key,
     model name, and base URL — they don't need to share a vendor.
+    `expensive_*` is the general-purpose, higher-end model: the follow-up
+    messaging agent (the only place that composes text sent to leads),
+    search-keyword generation, fact extraction/reconcile, and the real
+    qualify/reject + fit-score call in the qualification cascade
+    (pipeline/qualify.py). `cheap_*` is used in exactly one place: the fast/
+    cheap disqualify-only prefilter that runs before `expensive_*` ever sees
+    a candidate.
     """
 
     class LLMProvider(models.TextChoices):
@@ -37,23 +40,23 @@ class SiteConfig(models.Model):
         COHERE = "cohere", "Cohere"
         OPENAI_COMPATIBLE = "openai_compatible", "OpenAI-compatible"
 
-    chat_llm_provider = models.CharField(
+    expensive_llm_provider = models.CharField(
         max_length=32,
         choices=LLMProvider.choices,
         default=LLMProvider.OPENAI,
     )
-    chat_llm_api_key = models.CharField(max_length=500, blank=True, default="")
-    chat_ai_model = models.CharField(max_length=200, blank=True, default="")
-    chat_llm_api_base = models.CharField(max_length=500, blank=True, default="")
+    expensive_llm_api_key = models.CharField(max_length=500, blank=True, default="")
+    expensive_ai_model = models.CharField(max_length=200, blank=True, default="")
+    expensive_llm_api_base = models.CharField(max_length=500, blank=True, default="")
 
-    task_llm_provider = models.CharField(
+    cheap_llm_provider = models.CharField(
         max_length=32,
         choices=LLMProvider.choices,
         default=LLMProvider.OPENAI,
     )
-    task_llm_api_key = models.CharField(max_length=500, blank=True, default="")
-    task_ai_model = models.CharField(max_length=200, blank=True, default="")
-    task_llm_api_base = models.CharField(max_length=500, blank=True, default="")
+    cheap_llm_api_key = models.CharField(max_length=500, blank=True, default="")
+    cheap_ai_model = models.CharField(max_length=200, blank=True, default="")
+    cheap_llm_api_base = models.CharField(max_length=500, blank=True, default="")
 
     class Meta:
         app_label = "linkedin"
@@ -82,7 +85,6 @@ class Campaign(models.Model):
     is_freemium = models.BooleanField(default=False)
     action_fraction = models.FloatField(default=0.2)
     seed_public_ids = models.JSONField(default=list, blank=True)
-    model_blob = models.BinaryField(null=True, blank=True)
     # Round-robin pointer into active_profiles(), advanced by
     # linkedin/pipeline/allocation.py as ready leads are dealt out.
     assignment_cursor = models.PositiveIntegerField(default=0)

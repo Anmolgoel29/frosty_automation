@@ -59,17 +59,18 @@ REST_DAYS = (5, 6)      # 0=Mon … 6=Sun; default Sat+Sun off
 CAMPAIGN_CONFIG = {
     "check_pending_recheck_after_hours": 24,
     "min_action_interval": 120,
-    "qualification_n_mc_samples": 100,
-    "min_ready_to_connect_prob": 0.9,
-    "min_positive_pool_prob": 0.20,
-    # Exploit-mode search retry ceiling (pipeline/pools.py:qualify_source):
-    # how many fresh keyword searches to try, in one connect-task's
-    # candidate lookup, looking for a confident candidate before giving up
-    # and qualifying from whatever the existing pool has. Without a cap this
-    # loop's only stop condition is the campaign's entire keyword supply
-    # running dry (auto-refilled via the LLM) — real LinkedIn search traffic
-    # with no upper bound, on every account, every time the pool looks thin.
-    "max_search_attempts_per_qualify": 3,
+    # QUALIFIED -> READY_TO_CONNECT promotion gate and connect-order ranking
+    # (pipeline/ready_pool.py) — the expensive qualification stage's own
+    # 1-5 self-rating, re-evaluated against the QUALIFIED backlog on every
+    # call, so raising or lowering this mid-campaign takes effect immediately.
+    "min_fit_score": 4,
+    # Qualification dossier (ml/dossier.py). One expensive-stage
+    # qualification is now several LinkedIn reads — profile, follower count,
+    # the lead's posts, then a page + posts per company they currently work
+    # at — so they get a jittered gap rather than firing back-to-back.
+    "dossier_posts_per_source": 3,
+    "dossier_min_delay_seconds": 2,
+    "dossier_max_delay_seconds": 4,
     "embedding_model": "BAAI/bge-small-en-v1.5",
     "connect_delay_seconds": 10,
     "connect_no_candidate_delay_seconds": 300,

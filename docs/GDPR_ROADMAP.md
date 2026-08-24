@@ -92,7 +92,8 @@ Follow-up messages (`renderer.py`) require profile context (name, headline, comp
 ### A.6 Update `build_profile_text()` Pipeline
 
 - **`linkedin/ml/profile_text.py`** — No changes needed (already operates on in-memory dict)
-- **`linkedin/pipeline/qualify.py`** — `_fetch_profile_text()` must ensure the profile dict is used only in-memory and not persisted after embedding + LLM call complete
+- **`linkedin/ml/dossier.py`** — `collect_dossier()` must ensure the profile dict, posts and company pages are used only in-memory and not persisted after the LLM call completes. Note this now also pulls company-page and post data for third parties (the lead's employer), widening what a transient scrape touches
+- **`crm/models/lead.py`** — `Lead.about` *is* persisted (it feeds the cheap prefilter with no re-scrape), so it needs the same retention/erasure treatment as the other cached profile fields
 
 ---
 

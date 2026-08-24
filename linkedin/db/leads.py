@@ -21,6 +21,30 @@ def lead_exists(url: str) -> bool:
     return Lead.objects.filter(public_identifier=pid).exists()
 
 
+def _coarse_fields_from_profile(profile: Dict[str, Any]) -> Dict[str, str]:
+    """Campaign-agnostic coarse facts, cached on Lead at discovery time.
+
+    Feeds the cheap qualification prefilter (ml/qualifier.py:qualify_cheap)
+    without a second scrape. Position order mirrors what
+    ml/profile_text.py already assumes: LinkedIn returns positions
+    reverse-chronological, so index 0 is the current one.
+
+    ``about`` is stored untruncated — it is one of only two fields the
+    cheap prefilter reads, so clipping it would blind that stage.
+    """
+    positions = profile.get("positions") or []
+    current = positions[0] if positions else {}
+    industry = profile.get("industry") or {}
+    return {
+        "headline": (profile.get("headline") or "")[:500],
+        "about": profile.get("summary") or "",
+        "current_title": (current.get("title") or "")[:200],
+        "current_company": (current.get("company_name") or "")[:200],
+        "industry": (industry.get("name") or "")[:200],
+        "location_name": (profile.get("location_name") or "")[:200],
+    }
+
+
 def create_enriched_lead(session, url: str, profile: Dict[str, Any]) -> Optional[int]:
     """Create Lead with full profile data and embedding.
 
@@ -46,7 +70,10 @@ def create_enriched_lead(session, url: str, profile: Dict[str, Any]) -> Optional
                     urn, public_id,
                 )
                 return None
-            lead = Lead.objects.create(linkedin_url=clean_url, public_identifier=public_id)
+            lead = Lead.objects.create(
+                linkedin_url=clean_url, public_identifier=public_id,
+                **_coarse_fields_from_profile(profile),
+            )
             _cache_urn_from_profile(lead, profile)
     except IntegrityError:
         # Accounts search in parallel on different keywords and regularly land
@@ -63,7 +90,7 @@ def create_enriched_lead(session, url: str, profile: Dict[str, Any]) -> Optional
 
 
 @transaction.atomic
-def promote_lead_to_deal(session, public_id: str, reason: str = ""):
+def promote_lead_to_deal(session, public_id: str, reason: str = "", fit_score: int | None = None):
     """Create a QUALIFIED Deal for a Lead.
 
     Returns the Deal.
@@ -79,6 +106,7 @@ def promote_lead_to_deal(session, public_id: str, reason: str = ""):
         campaign=session.campaign,
         state=ProfileState.QUALIFIED,
         reason=reason,
+        fit_score=fit_score,
     )
 
     from termcolor import colored

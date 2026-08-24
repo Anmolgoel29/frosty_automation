@@ -47,7 +47,7 @@ def _deal_to_profile_dict(deal) -> dict:
     return base
 
 
-def _deals_at_state(session, state: ProfileState, *, owned_only: bool = False) -> list:
+def _deals_at_state(session, state: ProfileState, *, owned_only: bool = False, order_by: str = "") -> list:
     """Return profile dicts for all Deals at the given state in this campaign.
 
     ``owned_only`` narrows the result to the leads this session's LinkedIn
@@ -62,6 +62,8 @@ def _deals_at_state(session, state: ProfileState, *, owned_only: bool = False) -
     ).select_related("lead")
     if owned_only:
         qs = qs.filter(assigned_profile=session.linkedin_profile)
+    if order_by:
+        qs = qs.order_by(order_by)
     return [_deal_to_profile_dict(d) for d in qs]
 
 
@@ -156,8 +158,14 @@ def get_qualified_profiles(session) -> list:
 
 
 def get_ready_to_connect_profiles(session) -> list:
-    """Only the leads allocated to this account (see pipeline/allocation.py)."""
-    return _deals_at_state(session, ProfileState.READY_TO_CONNECT, owned_only=True)
+    """Only the leads allocated to this account (see pipeline/allocation.py).
+
+    Ordered by fit_score descending — the strongest prospects get contacted
+    first among this account's allocated pool.
+    """
+    return _deals_at_state(
+        session, ProfileState.READY_TO_CONNECT, owned_only=True, order_by="-fit_score",
+    )
 
 
 def get_profile_dict_for_public_id(session, public_id: str) -> dict | None:

@@ -11,7 +11,6 @@ import numpy as np
 import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
-from unittest.mock import patch
 
 from crm.models import Deal, Lead
 from linkedin.enums import ProfileState
@@ -71,63 +70,50 @@ class TestQueryBudgets:
         assert large < 20
 
     def test_promote_to_ready_cost_is_flat_in_pool_size(self, fake_session):
-        from linkedin.ml.qualifier import BayesianQualifier
+        """A single bulk UPDATE, not one query per QUALIFIED deal."""
         from linkedin.pipeline.ready_pool import promote_to_ready
 
-        scorer = BayesianQualifier(seed=42)
-
         _seed_qualified(fake_session, 5)
-        with patch.object(scorer, "predict_probs", return_value=np.zeros(5)):
-            small = _query_count(lambda: promote_to_ready(fake_session, scorer, 0.9))
+        Deal.objects.update(fit_score=5)
+        small = _query_count(lambda: promote_to_ready(fake_session, 4))
 
         _seed_qualified(fake_session, 45)
-        with patch.object(scorer, "predict_probs", return_value=np.zeros(50)):
-            large = _query_count(lambda: promote_to_ready(fake_session, scorer, 0.9))
+        Deal.objects.filter(state=ProfileState.QUALIFIED).update(fit_score=5)
+        large = _query_count(lambda: promote_to_ready(fake_session, 4))
 
         assert small == large, (
             f"promote_to_ready went from {small} to {large} queries when the "
-            f"QUALIFIED pool grew 5 → 50 — the embedding N+1 is back"
+            f"QUALIFIED pool grew 5 → 50 — the per-deal loop is back"
         )
 
-    def test_rank_profiles_cost_is_flat_in_pool_size(self, fake_session):
-        """Ranking runs on every connect task over the whole ready pool."""
+    def test_ready_pool_ranking_cost_is_flat_in_pool_size(self, fake_session):
+        """Ranking is now an indexed ORDER BY at read time, not a scoring pass —
+        runs on every connect task over the whole ready pool."""
         from linkedin.db.deals import get_ready_to_connect_profiles
-        from linkedin.ml.qualifier import BayesianQualifier
         from linkedin.pipeline.allocation import allocate_ready_deals
-
-        scorer = BayesianQualifier(seed=42)
-        scorer._fitted = True
-        scorer._pipeline = type(
-            "P", (), {"predict": staticmethod(lambda X: np.zeros(len(X)))},
-        )()
 
         def measure(n_total):
             _seed_qualified(fake_session, n_total - Deal.objects.count())
             Deal.objects.update(state=ProfileState.READY_TO_CONNECT,
-                                assigned_profile=None)
+                                assigned_profile=None, fit_score=3)
             allocate_ready_deals(fake_session.campaign)
-            profiles = get_ready_to_connect_profiles(fake_session)
-            return _query_count(
-                lambda: scorer.rank_profiles(profiles, session=fake_session),
-            )
+            return _query_count(lambda: get_ready_to_connect_profiles(fake_session))
 
         assert measure(5) == measure(50)
 
-    def test_qualification_pool_is_capped(self, fake_session):
-        """An unbounded pool read grows forever as the campaign discovers leads."""
-        from linkedin.pipeline.qualify import (
-            MAX_QUALIFICATION_CANDIDATES, fetch_qualification_candidates,
-        )
+    def test_qualification_candidate_fetch_is_a_single_row_query(self, fake_session):
+        """The cheap-stage cascade only ever needs the next one lead in FIFO
+        order — no reason to pull a windowed batch across the wire anymore."""
+        from linkedin.pipeline.qualify import fetch_next_qualification_candidate
 
-        emb = np.ones(384, dtype=np.float32).tobytes()
         Lead.objects.bulk_create([
-            Lead(linkedin_url=f"https://www.linkedin.com/in/p{i}/",
-                 public_identifier=f"p{i}", embedding=emb)
-            for i in range(MAX_QUALIFICATION_CANDIDATES + 25)
+            Lead(linkedin_url=f"https://www.linkedin.com/in/p{i}/", public_identifier=f"p{i}")
+            for i in range(300)
         ])
 
-        assert _query_count(lambda: fetch_qualification_candidates(fake_session)) == 1
-        assert len(fetch_qualification_candidates(fake_session)) == MAX_QUALIFICATION_CANDIDATES
+        assert _query_count(lambda: fetch_next_qualification_candidate(fake_session)) == 1
+        candidate = fetch_next_qualification_candidate(fake_session)
+        assert candidate.public_identifier == "p0"
 
     def test_state_transition_does_not_rewrite_summary_blobs(self, fake_session):
         """Deal carries two JSON fact lists; a state change must not resend them."""

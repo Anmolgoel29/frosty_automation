@@ -3,18 +3,15 @@
 thread-safe.
 
 Accounts run in parallel worker threads, but a campaign has exactly one
-GP model (``Campaign.model_blob``, warm-started into a single in-memory
-``BayesianQualifier``) and one pool of unlabelled leads. Two accounts
-qualifying at the same time would:
+shared pool of unlabelled leads. Two accounts qualifying at the same lead at
+the same time would both pick it — duplicate LLM spend (cheap *and*
+expensive stage), and the second ``Deal`` insert violates
+``unique_deal_per_campaign``.
 
-* both pick the *same* unlabelled lead — duplicate LLM spend, and the second
-  ``Deal`` insert violates ``unique_deal_per_campaign``;
-* refit the same sklearn pipeline concurrently, which is not thread-safe, and
-  race each other's ``model_blob`` writes.
-
-So qualification and GP promotion are serialised per campaign. Search — the
-slow, browser-bound part the accounts are actually here to parallelise — stays
-outside the lock, and keywords are claimed atomically in the database instead.
+So qualification and fit-score promotion are serialised per campaign.
+Search — the slow, browser-bound part the accounts are actually here to
+parallelise — stays outside the lock, and keywords are claimed atomically in
+the database instead.
 """
 from __future__ import annotations
 

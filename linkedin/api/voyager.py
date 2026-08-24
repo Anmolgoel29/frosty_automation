@@ -35,6 +35,10 @@ class Position:
     title: str
     company_name: str
     company_urn: Optional[str] = None
+    # Public company/school page URL, e.g. https://www.linkedin.com/company/google/.
+    # The slug in it is the ``universalName`` the organization API is keyed by,
+    # so this is what lets the qualification dossier reach the company page.
+    company_url: Optional[str] = None
     location: Optional[str] = None
     date_range: Optional[DateRange] = None
     description: Optional[str] = None
@@ -120,6 +124,7 @@ def _enrich_position(pos: dict, urn_map: Dict[str, dict]) -> Position:
         title=pos.get("title") or "Unknown Title",
         company_name=company.get("name") if company else pos.get("companyName", "Unknown Company"),
         company_urn=company.get("entityUrn") if company else pos.get("companyUrn"),
+        company_url=company.get("url") if company else None,
         location=pos.get("locationName"),
         date_range=_date_range_from_raw(pos.get("dateRange")),
         description=pos.get("description"),

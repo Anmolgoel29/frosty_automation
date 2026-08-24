@@ -1,0 +1,1675 @@
+[INF
+] LLM tracing enabled — exporting to http: //100.100.89.58:6006/v1/traces (project=openoutreach)
+[DBG
+] Created new account session for rogue (goelshubham700@gmail.com)
+[DBG
+] Launching/recovering browser for goelshubham700@gmail.com
+[DBG
+] Configuring browser for goelshubham700@gmail.com
+[INF
+] Loading saved session for goelshubham700@gmail.com
+[DBG
+] Launching Playwright (headless)
+[DBG
+] Pause: 5.44s
+[DBG
+] Navigated to https: //www.linkedin.com/feed/
+[INF
+] Browser ready
+Scraping parul-sen-5806a3260 …
+[WRN
+] follower count for parul-sen-5806a3260 → HTTP 410, skipping
+[WRN
+] company page socialleaf-influencer-marketing-agency returned no elements, skipping
+[DBG
+] dossier for parul-sen-5806a3260: 3 post(s),
+1 current compan(y/ies), followers=None
+
+=== LEAD ===
+Lead name: Parul Sen
+LinkedIn URL: https: //www.linkedin.com/in/parul-sen-5806a3260/
+Lead headline: Founder - SocialLeaf | Taking DTC brands from nobody to superstar with influencer marketing
+Lead location: New Delhi, Delhi, India
+Lead industry: Management Consulting
+Lead follower count: unknown
+
+=== LEAD ABOUT SECTION ===
+I am the founder of SocialLeaf, an influencer marketing agency that helps brands connect with their target audiences through authentic and engaging content. With a proven track record of driving results for brands and partners. With over 3 years of experience in the industry, I have built a team of talented professionals who are dedicated to driving results for our clients.
+
+In addition to running SocialLeaf, I also have a passion for affiliate marketing and have helped numerous clients increase their revenue through strategic partnerships and collaborations. I believe that building strong relationships is key to success in both influencer marketing and affiliate marketing.
+
+If you're interested in learning more about how SocialLeaf can help your brand succeed on social media, or if you'd like to explore opportunities for collaboration in affiliate marketing, please don't hesitate to reach out. I look forward to connecting with you!
+
+=== RECENT POSTS BY LEAD ===
+Recent posts by lead (3):
+--- Post 1 ---
+LOOKING FOR INFLUENCERS!
+
+All Talent Managers, Influencers or Agencies, leave a comment with your contact number or email and I would love to contact you for multiple campaigns with different brands. All regions, all sizes, all platforms!
+
+#influencermarketing #managers #talent #talentmanagement #influencers
+--- Post 2 ---
+Hi, everyone!
+
+I'm looking for a freelance influencer manager, marketing agencies for a project for the betting brand. If this is you or you know someone who is, please contact me.
+
+#project #freelance #influencermarketing #job #agencies #marketing
+--- Post 3 ---
+Hi, everyone! 
+
+Need nano influencers for our campaign! 
+
+Sharing the brief here :
+
+Brand : Hyderabad Book 
+Followers : 5k - 20k
+State : Andhra Pradesh/ Telangana 
+Language : Telugu
+No of creators : 400
+Deliverables : 1 reel (script will be provided) + 1 story (repost of reel) 
+
+Brand : Shetty Book 
+Followers : 5k - 20k
+State : Andhra Pradesh/ Telangana/Kerala/Karnataka/Tamil Nadu
+Language : Regional language 
+No of creators : 400
+Deliverables : 1 reel (script will be provided) + 1 story (repost of reel)
+
+contact me only if you have these type of influencers! 
+
+#campaignmanager #influencermarketing #project #opportunity #marketing #agencies #freelance
+
+=== LEAD EXPERIENCE (full history) ===
+--- Experience 1 ---
+Job title: Founder
+Company name: SocialLeaf - Influencer Marketing Agency
+Currently active in this role: yes
+Dates: January 2023 - Present
+Job location: New Delhi, Delhi, India
+Role description: Building a top-notch solution for brands when it comes to anything which relates to marketing, promotion & ads.
+
+We're working with top creators like Jannat Zubair, Abdu Rozik, Riva arora, Chinki Minki, & also with many celebs like Mc Stan, Emiway Bantai, Prince Naurla, Rashami Desai, Himanshi Khurana, etc.
+--- Experience 2 ---
+Job title: Affiliate Marketing Specialist
+Company name: LeadsGuru
+Currently active in this role: no
+Dates: January 2021 - January 2023
+Job location: New Delhi
+Role description: (none)
+
+=== EDUCATION ===
+--- Education 1 ---
+School name: Delhi University
+Degree: Bachelor of Commerce - BCom
+Field of study: 
+Dates: November 2020 - November 2023
+
+=== COMPANIES THE LEAD CURRENTLY WORKS AT ===
+
+--- Current company 1 ---
+Company name: SocialLeaf - Influencer Marketing Agency
+Company LinkedIn page: https: //www.linkedin.com/company/socialleaf-influencer-marketing-agency/
+Company industry: unknown
+Company size (employees on LinkedIn): unknown
+Company follower count: unknown
+Company tagline: (none)
+Company about section:
+(empty)
+Recent posts by SocialLeaf - Influencer Marketing Agency: none found
+
+=== RAW VOYAGER PROFILE RESPONSE (JSON) ===
+{
+  "data": {
+    "entityUrn": "urn:li:collectionResponse:wIvEI+7HLsv97gB0gtipWWge5bWOH2IJ83CFjzZ9YHM=",
+    "paging": {
+      "count": 10,
+      "start": 0,
+      "links": []
+    },
+    "*elements": [
+      "urn:li:fsd_profile:ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4"
+    ],
+    "$type": "com.linkedin.restli.common.CollectionResponse"
+  },
+  "included": [
+    {
+      "paging": {
+        "total": 0,
+        "count": 10,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:u55gluCTvGi+H08UEBveB64thMXJySFrkAZM3esOX8g=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileTreasuryMediaItemsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:SGyyBGvFhcfRLeZBM3hVh22SIG5A+H4emZagEF53MeA=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileHonorsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 2,
+        "count": 10,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "*elements": [
+        "urn:li:fsd_profilePositionGroup:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,9dc5edb8796e2d0dea0fd4ad2d8049cf98d87882)",
+        "urn:li:fsd_profilePositionGroup:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,1cc5d6fb83d277415d2d8e5f1021c4774bcf56e3)"
+      ],
+      "entityUrn": "urn:li:collectionResponse:SwxjbPwx9nIFsVddmcXhNOlTUMftaFEX1fOJy9PzHJI=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePositionGroupsInjection"
+      ],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:VH7xbezHR4bntVMfnQel8Y+DNQwQ2m4j5/DRSCNRYxw=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePublicationsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:MmOWUfphcN8UtOJ/ixZ/zdPuc2RleeavrV8pZ4M4jEw=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileCoursesInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 1,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "*elements": [
+        "urn:li:fsd_profilePosition:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,2132426289)"
+      ],
+      "entityUrn": "urn:li:collectionResponse:nyhKUbsQEkqwobvbOSoxxzSaiDxTmXKcPEzDWA251k0=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePositionsInGroup"
+      ],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:3jR3cfdqWW5z2RwEX+BmRbjOkYNeJvq0B6DMjn6C5sM=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileProjectsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 1,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "*elements": [
+        "urn:li:fsd_profilePosition:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,2134093217)"
+      ],
+      "entityUrn": "urn:li:collectionResponse:ZOW+5lVZH1FrdLbo06kyjRPW/DQRcECS4AwYJjIyLx8=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePositionsInGroup"
+      ],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "count": 10,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:tbxrr5mZj6sqWqi4BCM+Q3t2JdO6938kr3sUzZ+vAgw=",
+      "$recipeTypes": [
+        "com.linkedin.deco.recipe.anonymous.Anon105506655"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:DtGp21u01cT/DGVZfyawXNd8SiukMOlEnBo8A3ftzWg=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileVolunteerExperiencesInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "count": 10,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:YH5w4/9RBmkJzJbG1HafuzukdGc3a+2YkfdvlfYalC0=",
+      "$recipeTypes": [
+        "com.linkedin.deco.recipe.anonymous.Anon1936086081"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:139GUcvq/JC53wZHpIBPRxTB2yoVfmag91WNzoI7nHc=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePatentsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 1,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "*elements": [
+        "urn:li:fsd_profileEducation:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,868227775)"
+      ],
+      "entityUrn": "urn:li:collectionResponse:VXUn961wgYPqm1UxnlnvdtzBmeCdNGorGrv9r5BYe8g=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileEducationsInjection"
+      ],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:djN+NI1aQ3qd/3WShUzHDqCp7+15bRIXq/unD1wjtXk=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileOrganizationsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 10,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:8yXDgh4HzcCckkNfyvJNhvYsA1IvsWnmdlHkWs7xGQc=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileTreasuryMediaItemsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 10,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:j2vf5wJOk1Bx6/KG5mtBm3wa23qktAzTbo9S78mnq7w=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileTreasuryMediaItemsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 30,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "*elements": [
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,27)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,28)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,29)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,30)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,20)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,21)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,22)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,23)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,24)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,25)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,26)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,1)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,2)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,3)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,4)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,5)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,6)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,7)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,8)",
+        "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,9)"
+      ],
+      "entityUrn": "urn:li:collectionResponse:/7Ga39Iw+2SWIMhj7B35KoAqpST/w+66V7S8Ov9zjWM=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkillsInjection"
+      ],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:x9qOYyGSdT3EkDKU557OnKtHj/H8PAGybhIAfKGv7EU=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileTestScoresInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:wKZVDrr8ABfd1Ic1oFNk8h/bqShOkMW1gJEGLXbahn4=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileCertificationsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 20,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:fUCxnl7MMHskLg8U2Uexbf/b/66DhZyLAFIUsQwCcwM=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileLanguagesInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "paging": {
+        "total": 0,
+        "count": 10,
+        "start": 0,
+        "links": [],
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.FullPaging"
+        ],
+        "$type": "com.linkedin.restli.common.CollectionMetadata"
+      },
+      "entityUrn": "urn:li:collectionResponse:aNAK9Clo27Ur+0XZCPUiUl7qi/Uj2q6iXNFMrHYGI1Q=",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileTreasuryMediaItemsInjection"
+      ],
+      "elements": [],
+      "$type": "com.linkedin.restli.common.CollectionResponse"
+    },
+    {
+      "countryUrn": "urn:li:fsd_geo:102713980",
+      "defaultLocalizedNameWithoutCountryName": "New Delhi, Delhi",
+      "*country": "urn:li:fsd_geo:102713980",
+      "entityUrn": "urn:li:fsd_geo:115918471",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.Geo",
+        "com.linkedin.deco.recipe.anonymous.Anon1271139837"
+      ],
+      "defaultLocalizedName": "New Delhi, Delhi, India",
+      "$type": "com.linkedin.voyager.dash.common.Geo"
+    },
+    {
+      "entityUrn": "urn:li:fsd_geo:102713980",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.CountryGeo"
+      ],
+      "defaultLocalizedName": "India",
+      "$type": "com.linkedin.voyager.dash.common.Geo"
+    },
+    {
+      "entityUrn": "urn:li:fsd_industry:80",
+      "name": "Marketing & Advertising",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.common.Industry"
+      ],
+      "$type": "com.linkedin.voyager.dash.common.Industry"
+    },
+    {
+      "entityUrn": "urn:li:fsd_industry:132",
+      "name": "E-learning",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.common.Industry"
+      ],
+      "$type": "com.linkedin.voyager.dash.common.Industry"
+    },
+    {
+      "entityUrn": "urn:li:fsd_industry:11",
+      "name": "Management Consulting",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.common.Industry"
+      ],
+      "$type": "com.linkedin.voyager.dash.common.Industry"
+    },
+    {
+      "dateRange": {
+        "start": {
+          "month": 11,
+          "year": 2020,
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Date"
+          ],
+          "$type": "com.linkedin.common.Date"
+        },
+        "end": {
+          "month": 11,
+          "year": 2023,
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Date"
+          ],
+          "$type": "com.linkedin.common.Date"
+        },
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.DateRange"
+        ],
+        "$type": "com.linkedin.common.DateRange"
+      },
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "76f44d1a-42ee-436f-ae57-af5d4d00b723"
+      },
+      "description": null,
+      "*company": "urn:li:fsd_company:426734",
+      "*profileTreasuryMediaEducation": "urn:li:collectionResponse:j2vf5wJOk1Bx6/KG5mtBm3wa23qktAzTbo9S78mnq7w=",
+      "companyUrn": "urn:li:fsd_company:426734",
+      "schoolUrn": "urn:li:fsd_school:20321",
+      "entityUrn": "urn:li:fsd_profileEducation:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,868227775)",
+      "standardizedFieldOfStudyUrn": null,
+      "schoolName": "Delhi University",
+      "fieldOfStudy": null,
+      "degreeName": "Bachelor of Commerce - BCom",
+      "multiLocaleGrade": null,
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileEducation"
+      ],
+      "multiLocaleSchoolName": {
+        "en_US": "Delhi University"
+      },
+      "$type": "com.linkedin.voyager.dash.identity.profile.Education",
+      "multiLocaleActivities": null,
+      "activities": null,
+      "grade": null,
+      "*school": "urn:li:fsd_school:20321",
+      "multiLocaleFieldOfStudy": null,
+      "multiLocaleDescription": null,
+      "multiLocaleDegreeName": {
+        "en_US": "Bachelor of Commerce - BCom"
+      },
+      "degreeUrn": null
+    },
+    {
+      "entityUrn": "urn:li:fsd_employmentType:12",
+      "companyNameRequired": true,
+      "name": "Full-time",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.EmploymentType"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.EmploymentType"
+    },
+    {
+      "dateRange": {
+        "start": {
+          "month": 1,
+          "year": 2023,
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Date"
+          ],
+          "$type": "com.linkedin.common.Date"
+        },
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.DateRange"
+        ],
+        "$type": "com.linkedin.common.DateRange"
+      },
+      "multiLocaleCompanyName": {
+        "en_US": "SocialLeaf - Influencer Marketing Agency"
+      },
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "36f52eb0-b888-4dbd-a4e9-5d63687f1b7e"
+      },
+      "companyName": "SocialLeaf - Influencer Marketing Agency",
+      "description": "Building a top-notch solution for brands when it comes to anything which relates to marketing, promotion & ads.\n\nWe're working with top creators like Jannat Zubair, Abdu Rozik, Riva arora, Chinki Minki, & also with many celebs like Mc Stan, Emiway Bantai, Prince Naurla, Rashami Desai, Himanshi Khurana, etc.",
+      "*company": "urn:li:fsd_company:91014109",
+      "title": "Founder",
+      "companyUrn": "urn:li:fsd_company:91014109",
+      "*employmentType": "urn:li:fsd_employmentType:12",
+      "employmentTypeUrn": "urn:li:fsd_employmentType:12",
+      "entityUrn": "urn:li:fsd_profilePosition:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,2134093217)",
+      "multiLocaleGeoLocationName": {
+        "en_US": "New Delhi, Delhi, India"
+      },
+      "shouldShowSourceOfHireBadge": false,
+      "locationName": "New Delhi, Delhi, India",
+      "*profileTreasuryMediaPosition": "urn:li:collectionResponse:8yXDgh4HzcCckkNfyvJNhvYsA1IvsWnmdlHkWs7xGQc=",
+      "multiLocaleTitle": {
+        "en_US": "Founder"
+      },
+      "geoUrn": "urn:li:fsd_geo:115918471",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePosition"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "*geo": "urn:li:fsd_geo:115918471",
+      "geoLocationName": "New Delhi, Delhi, India",
+      "multiLocaleDescription": {
+        "en_US": "Building a top-notch solution for brands when it comes to anything which relates to marketing, promotion & ads.\n\nWe're working with top creators like Jannat Zubair, Abdu Rozik, Riva arora, Chinki Minki, & also with many celebs like Mc Stan, Emiway Bantai, Prince Naurla, Rashami Desai, Himanshi Khurana, etc."
+      },
+      "multiLocaleLocationName": {
+        "en_US": "New Delhi, Delhi, India"
+      }
+    },
+    {
+      "dateRange": {
+        "start": {
+          "month": 1,
+          "year": 2021,
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Date"
+          ],
+          "$type": "com.linkedin.common.Date"
+        },
+        "end": {
+          "month": 1,
+          "year": 2023,
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Date"
+          ],
+          "$type": "com.linkedin.common.Date"
+        },
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.DateRange"
+        ],
+        "$type": "com.linkedin.common.DateRange"
+      },
+      "multiLocaleCompanyName": {
+        "en_US": "LeadsGuru "
+      },
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "ef86a89c-a3e0-4b34-8cb6-12514662e326"
+      },
+      "companyName": "LeadsGuru ",
+      "*company": "urn:li:fsd_company:75064874",
+      "title": "Affiliate Marketing Specialist",
+      "companyUrn": "urn:li:fsd_company:75064874",
+      "*employmentType": "urn:li:fsd_employmentType:12",
+      "employmentTypeUrn": "urn:li:fsd_employmentType:12",
+      "entityUrn": "urn:li:fsd_profilePosition:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,2132426289)",
+      "multiLocaleGeoLocationName": {
+        "en_US": "New Delhi"
+      },
+      "shouldShowSourceOfHireBadge": false,
+      "locationName": "New Delhi",
+      "*profileTreasuryMediaPosition": "urn:li:collectionResponse:u55gluCTvGi+H08UEBveB64thMXJySFrkAZM3esOX8g=",
+      "multiLocaleTitle": {
+        "en_US": "Affiliate Marketing Specialist"
+      },
+      "geoUrn": "urn:li:fsd_geo:115918471",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePosition"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "*geo": "urn:li:fsd_geo:115918471",
+      "geoLocationName": "New Delhi",
+      "multiLocaleLocationName": {
+        "en_US": "New Delhi"
+      }
+    },
+    {
+      "*profilePositionInPositionGroup": "urn:li:collectionResponse:ZOW+5lVZH1FrdLbo06kyjRPW/DQRcECS4AwYJjIyLx8=",
+      "dateRange": {
+        "start": {
+          "month": 1,
+          "year": 2023,
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Date"
+          ],
+          "$type": "com.linkedin.common.Date"
+        },
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.DateRange"
+        ],
+        "$type": "com.linkedin.common.DateRange"
+      },
+      "multiLocaleCompanyName": {
+        "en_US": "SocialLeaf - Influencer Marketing Agency"
+      },
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "1b79e860-294a-4c01-891e-ff5cd0363942"
+      },
+      "companyName": "SocialLeaf - Influencer Marketing Agency",
+      "*company": "urn:li:fsd_company:91014109",
+      "companyUrn": "urn:li:fsd_company:91014109",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePositionGroup"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.PositionGroup",
+      "entityUrn": "urn:li:fsd_profilePositionGroup:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,9dc5edb8796e2d0dea0fd4ad2d8049cf98d87882)"
+    },
+    {
+      "*profilePositionInPositionGroup": "urn:li:collectionResponse:nyhKUbsQEkqwobvbOSoxxzSaiDxTmXKcPEzDWA251k0=",
+      "dateRange": {
+        "start": {
+          "month": 1,
+          "year": 2021,
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Date"
+          ],
+          "$type": "com.linkedin.common.Date"
+        },
+        "end": {
+          "month": 1,
+          "year": 2023,
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Date"
+          ],
+          "$type": "com.linkedin.common.Date"
+        },
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.DateRange"
+        ],
+        "$type": "com.linkedin.common.DateRange"
+      },
+      "multiLocaleCompanyName": {
+        "en_US": "LeadsGuru "
+      },
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "a4d448a4-00d1-40b8-82a7-f4521f07a993"
+      },
+      "companyName": "LeadsGuru ",
+      "*company": "urn:li:fsd_company:75064874",
+      "companyUrn": "urn:li:fsd_company:75064874",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfilePositionGroup"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.PositionGroup",
+      "entityUrn": "urn:li:fsd_profilePositionGroup:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,1cc5d6fb83d277415d2d8e5f1021c4774bcf56e3)"
+    },
+    {
+      "birthDateOn": {
+        "month": 3,
+        "day": 26,
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.Date"
+        ],
+        "$type": "com.linkedin.common.Date"
+      },
+      "multiLocalePhoneticLastName": null,
+      "industryV2Urn": null,
+      "objectUrn": "urn:li:member:1076660592",
+      "multiLocaleLastName": {
+        "en_US": "Sen"
+      },
+      "*profilePositionGroups": "urn:li:collectionResponse:SwxjbPwx9nIFsVddmcXhNOlTUMftaFEX1fOJy9PzHJI=",
+      "*profileVideoPreview": "urn:li:collectionResponse:tbxrr5mZj6sqWqi4BCM+Q3t2JdO6938kr3sUzZ+vAgw=",
+      "*profileCertifications": "urn:li:collectionResponse:wKZVDrr8ABfd1Ic1oFNk8h/bqShOkMW1gJEGLXbahn4=",
+      "pronounUnion": {
+        "standardizedPronoun": "HE_HIM"
+      },
+      "multiLocaleFirstNamePronunciationHint": {},
+      "multiLocaleLastNamePronunciationHint": {},
+      "*profileTestScores": "urn:li:collectionResponse:x9qOYyGSdT3EkDKU557OnKtHj/H8PAGybhIAfKGv7EU=",
+      "tempStatusExpiredAtUnion": null,
+      "multiLocaleFirstName": {
+        "en_US": "Parul"
+      },
+      "multiLocaleTempStatus": null,
+      "companyNameOnProfileTopCardShown": true,
+      "*profileLanguages": "urn:li:collectionResponse:fUCxnl7MMHskLg8U2Uexbf/b/66DhZyLAFIUsQwCcwM=",
+      "state": null,
+      "publicIdentifier": "parul-sen-5806a3260",
+      "trackingId": "g8eWviDNTaqGqir7YpWVDQ==",
+      "phoneticFirstName": null,
+      "multiLocaleSummary": {
+        "en_US": "I am the founder of SocialLeaf, an influencer marketing agency that helps brands connect with their target audiences through authentic and engaging content. With a proven track record of driving results for brands and partners. With over 3 years of experience in the industry, I have built a team of talented professionals who are dedicated to driving results for our clients.\n\nIn addition to running SocialLeaf, I also have a passion for affiliate marketing and have helped numerous clients increase their revenue through strategic partnerships and collaborations. I believe that building strong relationships is key to success in both influencer marketing and affiliate marketing.\n\nIf you're interested in learning more about how SocialLeaf can help your brand succeed on social media, or if you'd like to explore opportunities for collaboration in affiliate marketing, please don't hesitate to reach out. I look forward to connecting with you!"
+      },
+      "firstNamePronunciationHint": null,
+      "lastNamePronunciationHint": null,
+      "versionTag": "302218404",
+      "*profilePatents": "urn:li:collectionResponse:139GUcvq/JC53wZHpIBPRxTB2yoVfmag91WNzoI7nHc=",
+      "associatedHashtagsCopy": null,
+      "profilePicture": {
+        "a11yText": "Parul Sen",
+        "displayImageReference": {
+          "vectorImage": {
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.VectorImageOnlyRootUrlAndAttribution"
+            ],
+            "rootUrl": "https://media.licdn.com/dms/image/v2/D5603AQFXthGG72alXg/profile-displayphoto-",
+            "artifacts": [
+              {
+                "width": 200,
+                "$recipeTypes": [
+                  "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+                ],
+                "fileIdentifyingUrlPathSegment": "scale_200_200/B56Z6rDbrqHcAg-/0/1780986264971?e=1788998400&v=beta&t=uBjrMJGZlr331ASoYIZ-F8jA058XSPKVs6wxj85Q48w",
+                "expiresAt": 1788998400000,
+                "height": 200,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 800,
+                "$recipeTypes": [
+                  "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+                ],
+                "fileIdentifyingUrlPathSegment": "crop_800_800/B56Z6rDbrqHcAM-/0/1780986264971?e=1788998400&v=beta&t=RXCIB_wBghJNyXu81fQ0Ce37jClDyuuuxwxtvuCZi10",
+                "expiresAt": 1788998400000,
+                "height": 800,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 100,
+                "$recipeTypes": [
+                  "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+                ],
+                "fileIdentifyingUrlPathSegment": "scale_100_100/B56Z6rDbrqHcAc-/0/1780986264971?e=1788998400&v=beta&t=ZANxglhqufkRPNCbTHT3VoCqnqfQXHeBHZmgymck7AU",
+                "expiresAt": 1788998400000,
+                "height": 100,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 400,
+                "$recipeTypes": [
+                  "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+                ],
+                "fileIdentifyingUrlPathSegment": "scale_400_400/B56Z6rDbrqHcAk-/0/1780986264971?e=1788998400&v=beta&t=MtSP-G9f4qmGkjl7mhuZMiSknvtY6wgeDWeBxWXd-c4",
+                "expiresAt": 1788998400000,
+                "height": 400,
+                "$type": "com.linkedin.common.VectorArtifact"
+              }
+            ],
+            "$type": "com.linkedin.common.VectorImage"
+          }
+        },
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.identity.profile.ProfilePhotoDecoSpecEditableProfilePicture"
+        ],
+        "displayImageUrn": "urn:li:digitalmediaAsset:D5603AQFXthGG72alXg",
+        "photoFilterEditInfo": {
+          "bottomLeft": {
+            "x": 0.243709996342659,
+            "y": 1.0,
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.Coordinate2DFull"
+            ],
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "vignette": 0.0,
+          "bottomRight": {
+            "x": 0.8324399590492249,
+            "y": 1.0,
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.Coordinate2DFull"
+            ],
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "topRight": {
+            "x": 0.8324399590492249,
+            "y": 0.0,
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.Coordinate2DFull"
+            ],
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "$recipeTypes": [
+            "com.linkedin.deco.recipe.anonymous.Anon1309211116"
+          ],
+          "$type": "com.linkedin.voyager.dash.identity.profile.PhotoFilterEditInfo",
+          "saturation": 0.0,
+          "brightness": 0.0,
+          "photoFilterType": "ORIGINAL",
+          "contrast": 0.0,
+          "topLeft": {
+            "x": 0.243709996342659,
+            "y": 0.0,
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.Coordinate2DFull"
+            ],
+            "$type": "com.linkedin.common.Coordinate2D"
+          }
+        },
+        "$type": "com.linkedin.voyager.dash.identity.profile.PhotoFilterPicture"
+      },
+      "firstName": "Parul",
+      "*profileOrganizations": "urn:li:collectionResponse:djN+NI1aQ3qd/3WShUzHDqCp7+15bRIXq/unD1wjtXk=",
+      "multiLocaleMaidenName": null,
+      "*profileHonors": "urn:li:collectionResponse:SGyyBGvFhcfRLeZBM3hVh22SIG5A+H4emZagEF53MeA=",
+      "*profileSkills": "urn:li:collectionResponse:/7Ga39Iw+2SWIMhj7B35KoAqpST/w+66V7S8Ov9zjWM=",
+      "multiLocaleHeadline": {
+        "en_US": "Founder - SocialLeaf | Taking DTC brands from nobody to superstar with influencer marketing"
+      },
+      "*profileProjects": "urn:li:collectionResponse:3jR3cfdqWW5z2RwEX+BmRbjOkYNeJvq0B6DMjn6C5sM=",
+      "*profilePublications": "urn:li:collectionResponse:VH7xbezHR4bntVMfnQel8Y+DNQwQ2m4j5/DRSCNRYxw=",
+      "lastName": "Sen",
+      "memorialized": false,
+      "multiLocalePhoneticFirstName": null,
+      "volunteerCauses": null,
+      "*industry": "urn:li:fsd_industry:11",
+      "showPremiumSubscriberBadge": false,
+      "tempStatusEmoji": null,
+      "maidenName": null,
+      "geoLocationBackfilled": false,
+      "multiLocaleFullNamePronunciationAudio": {},
+      "phoneticLastName": null,
+      "premium": false,
+      "influencer": false,
+      "*profileCourses": "urn:li:collectionResponse:MmOWUfphcN8UtOJ/ixZ/zdPuc2RleeavrV8pZ4M4jEw=",
+      "entityUrn": "urn:li:fsd_profile:ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4",
+      "*profileRingStatusCollection": "urn:li:collectionResponse:YH5w4/9RBmkJzJbG1HafuzukdGc3a+2YkfdvlfYalC0=",
+      "*profileEducations": "urn:li:collectionResponse:VXUn961wgYPqm1UxnlnvdtzBmeCdNGorGrv9r5BYe8g=",
+      "headline": "Founder - SocialLeaf | Taking DTC brands from nobody to superstar with influencer marketing",
+      "fullNamePronunciationAudio": null,
+      "summary": "I am the founder of SocialLeaf, an influencer marketing agency that helps brands connect with their target audiences through authentic and engaging content. With a proven track record of driving results for brands and partners. With over 3 years of experience in the industry, I have built a team of talented professionals who are dedicated to driving results for our clients.\n\nIn addition to running SocialLeaf, I also have a passion for affiliate marketing and have helped numerous clients increase their revenue through strategic partnerships and collaborations. I believe that building strong relationships is key to success in both influencer marketing and affiliate marketing.\n\nIf you're interested in learning more about how SocialLeaf can help your brand succeed on social media, or if you'd like to explore opportunities for collaboration in affiliate marketing, please don't hesitate to reach out. I look forward to connecting with you!",
+      "creator": true,
+      "supportedLocales": [
+        {
+          "country": "US",
+          "language": "en",
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.Locale"
+          ],
+          "$type": "com.linkedin.common.Locale"
+        }
+      ],
+      "address": null,
+      "locationName": null,
+      "multiLocaleAddress": null,
+      "*profileVolunteerExperiences": "urn:li:collectionResponse:DtGp21u01cT/DGVZfyawXNd8SiukMOlEnBo8A3ftzWg=",
+      "educationOnProfileTopCardShown": false,
+      "industryUrn": "urn:li:fsd_industry:11",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+      "coverPhotoItems": [],
+      "geoLocation": {
+        "*geo": "urn:li:fsd_geo:115918471",
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.identity.profile.ProfileGeoLocation"
+        ],
+        "geoUrn": "urn:li:fsd_geo:115918471",
+        "$type": "com.linkedin.voyager.dash.identity.profile.ProfileGeoLocation"
+      },
+      "tempStatus": null,
+      "*profileTreasuryMediaProfile": "urn:li:collectionResponse:aNAK9Clo27Ur+0XZCPUiUl7qi/Uj2q6iXNFMrHYGI1Q=",
+      "location": {
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.identity.profile.ProfileLocation"
+        ],
+        "countryCode": "IN",
+        "$type": "com.linkedin.voyager.dash.identity.profile.ProfileLocation"
+      },
+      "primaryLocale": {
+        "country": "US",
+        "language": "en",
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.Locale"
+        ],
+        "$type": "com.linkedin.common.Locale"
+      },
+      "backgroundPicture": {
+        "displayImageReference": {
+          "vectorImage": {
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.VectorImageOnlyRootUrlAndAttribution"
+            ],
+            "rootUrl": "https://media.licdn.com/dms/image/v2/D4D16AQFYMyz_VBoPuA/profile-displaybackgroundimage-shrink_",
+            "artifacts": [
+              {
+                "width": 800,
+                "$recipeTypes": [
+                  "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+                ],
+                "fileIdentifyingUrlPathSegment": "200_800/profile-displaybackgroundimage-shrink_200_800/0/1672998096142?e=1788998400&v=beta&t=6vWBOcI3CAzUJA8C3HfuZ551jxc5dgUq828L7l5h-u0",
+                "expiresAt": 1788998400000,
+                "height": 200,
+                "$type": "com.linkedin.common.VectorArtifact"
+              },
+              {
+                "width": 1080,
+                "$recipeTypes": [
+                  "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+                ],
+                "fileIdentifyingUrlPathSegment": "350_1400/profile-displaybackgroundimage-shrink_350_1400/0/1672998096142?e=1788998400&v=beta&t=a_dtEYS5dRBTCAIndsw5Jmg9Y0WnmPn_Su9_l3_p9YE",
+                "expiresAt": 1788998400000,
+                "height": 270,
+                "$type": "com.linkedin.common.VectorArtifact"
+              }
+            ],
+            "$type": "com.linkedin.common.VectorImage"
+          }
+        },
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.identity.profile.ProfilePhotoDecoSpecEditableBackgroundPicture"
+        ],
+        "displayImageUrn": "urn:li:digitalmediaAsset:D4D16AQFYMyz_VBoPuA",
+        "photoFilterEditInfo": {
+          "bottomLeft": {
+            "x": 0.0,
+            "y": 0.686721920967102,
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.Coordinate2DFull"
+            ],
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "vignette": 0.0,
+          "bottomRight": {
+            "x": 1.0,
+            "y": 0.686721920967102,
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.Coordinate2DFull"
+            ],
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "topRight": {
+            "x": 1.0,
+            "y": 0.31327807903289795,
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.Coordinate2DFull"
+            ],
+            "$type": "com.linkedin.common.Coordinate2D"
+          },
+          "$recipeTypes": [
+            "com.linkedin.deco.recipe.anonymous.Anon1309211116"
+          ],
+          "$type": "com.linkedin.voyager.dash.identity.profile.PhotoFilterEditInfo",
+          "saturation": 0.0,
+          "brightness": 0.0,
+          "photoFilterType": "ORIGINAL",
+          "contrast": 0.0,
+          "topLeft": {
+            "x": 0.0,
+            "y": 0.31327807903289795,
+            "$recipeTypes": [
+              "com.linkedin.voyager.dash.deco.common.Coordinate2DFull"
+            ],
+            "$type": "com.linkedin.common.Coordinate2D"
+          }
+        },
+        "$type": "com.linkedin.voyager.dash.identity.profile.PhotoFilterPicture"
+      }
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,26)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "faf00bb0-e3d4-4d5a-9842-e2e01242a65d"
+      },
+      "multiLocaleName": {
+        "en_US": "Team Building"
+      },
+      "name": "Team Building",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,6)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "5b8cdab8-739a-491d-8980-8f9a5eb804ea"
+      },
+      "multiLocaleName": {
+        "en_US": "Sales & Marketing"
+      },
+      "name": "Sales & Marketing",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,22)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "6016bf61-6d9c-4ed5-a2be-186d840cd222"
+      },
+      "multiLocaleName": {
+        "en_US": "Sales"
+      },
+      "name": "Sales",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,30)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "a9a6e252-3fba-4633-8e41-09284c9be0ef"
+      },
+      "multiLocaleName": {
+        "en_US": "Brand Building"
+      },
+      "name": "Brand Building",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,2)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "07edce07-0d8f-44e7-8a22-ac431176434c"
+      },
+      "multiLocaleName": {
+        "en_US": "Entrepreneurship"
+      },
+      "name": "Entrepreneurship",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,25)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "fb450538-5662-4c49-8b42-12c860223b18"
+      },
+      "multiLocaleName": {
+        "en_US": "Team Leadership"
+      },
+      "name": "Team Leadership",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,7)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "a2a36af5-5c76-4b12-bd3e-839ba7f82807"
+      },
+      "multiLocaleName": {
+        "en_US": "Communication"
+      },
+      "name": "Communication",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,21)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "74fed60d-ef3e-4a93-8c0f-42d8ca823a52"
+      },
+      "multiLocaleName": {
+        "en_US": "Online Advertising"
+      },
+      "name": "Online Advertising",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,3)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "40d167ee-dfed-4bf8-ae02-3c6b72b197f0"
+      },
+      "multiLocaleName": {
+        "en_US": "Digital Marketing"
+      },
+      "name": "Digital Marketing",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,28)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "237aee44-4151-4dc7-afb6-03defc811c26"
+      },
+      "multiLocaleName": {
+        "en_US": "Personal Branding"
+      },
+      "name": "Personal Branding",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,8)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "47b356ea-914b-452b-b951-2d21d0073a7e"
+      },
+      "multiLocaleName": {
+        "en_US": "Influencer Marketing"
+      },
+      "name": "Influencer Marketing",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,24)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "2b41a984-bf86-4e8d-91bf-fceb9cb7802f"
+      },
+      "multiLocaleName": {
+        "en_US": "E-Commerce"
+      },
+      "name": "E-Commerce",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,20)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "2a786725-19a1-4677-84ff-ee4ecde4de7a"
+      },
+      "multiLocaleName": {
+        "en_US": "Affiliate Marketing"
+      },
+      "name": "Affiliate Marketing",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,4)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "5eea3a98-860e-41a4-b224-edc100943fff"
+      },
+      "multiLocaleName": {
+        "en_US": "Marketing"
+      },
+      "name": "Marketing",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,29)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "e4c8b042-f424-49cb-94b8-6fb7159bed77"
+      },
+      "multiLocaleName": {
+        "en_US": "Growth Strategies"
+      },
+      "name": "Growth Strategies",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,5)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "024763d7-2350-4368-b830-bd0f707fedd5"
+      },
+      "multiLocaleName": {
+        "en_US": "Social Media Marketing"
+      },
+      "name": "Social Media Marketing",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,27)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "d8681a74-6444-43f0-ae0e-4f2a49094617"
+      },
+      "multiLocaleName": {
+        "en_US": "Campaign Management"
+      },
+      "name": "Campaign Management",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,9)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "41aab4c5-8ef6-4164-a7f9-eaf75b6e0c32"
+      },
+      "multiLocaleName": {
+        "en_US": "Brand Management"
+      },
+      "name": "Brand Management",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,23)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "eb2cbe4d-0977-46d8-aaa9-43178ae9639d"
+      },
+      "multiLocaleName": {
+        "en_US": "Email Marketing"
+      },
+      "name": "Email Marketing",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_skill:(ACoAAEAsiXAB0TRxBoNK9pcZS3ky7kOEpOwW8-4,1)",
+      "$anti_abuse_metadata": {
+        "$anti_abuse_uuid": "eb25703e-ffcc-4e08-865f-7afcf29baf5f"
+      },
+      "multiLocaleName": {
+        "en_US": "Content Creation"
+      },
+      "name": "Content Creation",
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.FullProfileSkill"
+      ],
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill"
+    },
+    {
+      "entityUrn": "urn:li:fsd_company:426734",
+      "name": "Delhi University",
+      "logo": {
+        "vectorImage": {
+          "digitalmediaAsset": "urn:li:digitalmediaAsset:C4D0BAQGNYUwkC1YEEQ",
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.VectorImage"
+          ],
+          "rootUrl": "https://media.licdn.com/dms/image/v2/C4D0BAQGNYUwkC1YEEQ/company-logo_",
+          "artifacts": [
+            {
+              "width": 200,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "200_200/company-logo_200_200/0/1674548936157/_logo?e=1788998400&v=beta&t=wWNaPbb__JN-rLsgjSNn-wDrpYO3lXi7Fk1UH3URAlo",
+              "expiresAt": 1788998400000,
+              "height": 200,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 100,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "100_100/company-logo_100_100/0/1674548936157/_logo?e=1788998400&v=beta&t=Wy3jkC-jNfY8R9Wx4jrLqRpSLZJpqOfNHwzBF2rSjqI",
+              "expiresAt": 1788998400000,
+              "height": 100,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 400,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "400_400/company-logo_400_400/0/1674548936157/_logo?e=1788998400&v=beta&t=ofd-prJf859NvQ3EqjAqa7-UN4t7AL2sEoVAqmvgjNk",
+              "expiresAt": 1788998400000,
+              "height": 400,
+              "$type": "com.linkedin.common.VectorArtifact"
+            }
+          ],
+          "$type": "com.linkedin.common.VectorImage"
+        }
+      },
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.organization.MiniCompany"
+      ],
+      "url": "https://www.linkedin.com/school/delhi-university/",
+      "$type": "com.linkedin.voyager.dash.organization.Company"
+    },
+    {
+      "industry": {
+        "*urn:li:fsd_industry:80": "urn:li:fsd_industry:80"
+      },
+      "industryUrns": [
+        "urn:li:fsd_industry:80"
+      ],
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.LinkablePositionCompany"
+      ],
+      "url": "https://www.linkedin.com/company/socialleaf-influencer-marketing-agency/",
+      "$type": "com.linkedin.voyager.dash.organization.Company",
+      "employeeCountRange": {
+        "start": 2,
+        "end": 10,
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.IntegerRange"
+        ],
+        "$type": "com.linkedin.common.IntegerRange"
+      },
+      "entityUrn": "urn:li:fsd_company:91014109",
+      "name": "SocialLeaf - Influencer Marketing Agency",
+      "logo": {
+        "vectorImage": {
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.VectorImageOnlyRootUrlAndAttribution"
+          ],
+          "rootUrl": "https://media.licdn.com/dms/image/v2/C4D0BAQHrHCW_ROAGWg/company-logo_",
+          "artifacts": [
+            {
+              "width": 200,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "200_200/company-logo_200_200/0/1678091596254?e=1788998400&v=beta&t=4dIGOByGvNOa9qmUGUWMrdkENu8QY_D9fMNllIM8DTA",
+              "expiresAt": 1788998400000,
+              "height": 200,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 100,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "100_100/company-logo_100_100/0/1678091596254?e=1788998400&v=beta&t=_cEr6k3fnbPAQ1_-BalaYlXYeLDh7E5_NI6nM0EzYnM",
+              "expiresAt": 1788998400000,
+              "height": 100,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 400,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "400_400/company-logo_400_400/0/1678091596254?e=1788998400&v=beta&t=goZRirx0ulsFkbsKYo_RcItakpeyVAGz_DP_O6R_Duk",
+              "expiresAt": 1788998400000,
+              "height": 400,
+              "$type": "com.linkedin.common.VectorArtifact"
+            }
+          ],
+          "$type": "com.linkedin.common.VectorImage"
+        }
+      },
+      "universalName": "socialleaf-influencer-marketing-agency"
+    },
+    {
+      "industry": {
+        "*urn:li:fsd_industry:132": "urn:li:fsd_industry:132"
+      },
+      "industryUrns": [
+        "urn:li:fsd_industry:132"
+      ],
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.identity.profile.LinkablePositionCompany"
+      ],
+      "url": "https://www.linkedin.com/company/leadsguru-anshugr16/",
+      "$type": "com.linkedin.voyager.dash.organization.Company",
+      "employeeCountRange": {
+        "start": 51,
+        "end": 200,
+        "$recipeTypes": [
+          "com.linkedin.voyager.dash.deco.common.IntegerRange"
+        ],
+        "$type": "com.linkedin.common.IntegerRange"
+      },
+      "entityUrn": "urn:li:fsd_company:75064874",
+      "name": "LeadsGuru",
+      "logo": {
+        "vectorImage": {
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.VectorImageOnlyRootUrlAndAttribution"
+          ],
+          "rootUrl": "https://media.licdn.com/dms/image/v2/C4D0BAQFOipyqcCtTqQ/company-logo_",
+          "artifacts": [
+            {
+              "width": 200,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "200_200/company-logo_200_200/0/1630553286148?e=1788998400&v=beta&t=JNc4idFC6e3oYCpzi4WQMNzoDbgiKZ5WGH2BIKxXbZU",
+              "expiresAt": 1788998400000,
+              "height": 200,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 100,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "100_100-alternative/company-logo_100_100-alternative/0/1630553286155?e=1788998400&v=beta&t=3A9BbBc4Xf9iAXb3h0yqgdTRwJL8i6gdleuTfkbsizU",
+              "expiresAt": 1788998400000,
+              "height": 100,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 400,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "400_400/company-logo_400_400/0/1630553286148?e=1788998400&v=beta&t=JjaWtFZc38HTH4rSOPV6x0wKT9A2vQWJ9Rt2PSbEaQw",
+              "expiresAt": 1788998400000,
+              "height": 400,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 400,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "400_400-alternative/company-logo_400_400-alternative/0/1630553286155?e=1788998400&v=beta&t=mavn1be-DwLM44geaOF_p_0lJTEAP29WTA3UXDES-NE",
+              "expiresAt": 1788998400000,
+              "height": 400,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 200,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "200_200-alternative/company-logo_200_200-alternative/0/1630553286155?e=1788998400&v=beta&t=DRKHFK1bOVqoZmE24MJT1CZg7-MjK_AeAApXmUo33ms",
+              "expiresAt": 1788998400000,
+              "height": 200,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 100,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "100_100/company-logo_100_100/0/1630553286148?e=1788998400&v=beta&t=V665rc3eV7eskoww7NEG390kdzU4G8O5QcwNEgGmLLs",
+              "expiresAt": 1788998400000,
+              "height": 100,
+              "$type": "com.linkedin.common.VectorArtifact"
+            }
+          ],
+          "$type": "com.linkedin.common.VectorImage"
+        }
+      },
+      "universalName": "leadsguru-anshugr16"
+    },
+    {
+      "active": true,
+      "$recipeTypes": [
+        "com.linkedin.voyager.dash.deco.organization.MiniSchool"
+      ],
+      "url": "https://www.linkedin.com/school/delhi-university/",
+      "$type": "com.linkedin.voyager.dash.organization.School",
+      "entityUrn": "urn:li:fsd_school:20321",
+      "name": "Delhi University",
+      "logo": {
+        "vectorImage": {
+          "digitalmediaAsset": "urn:li:digitalmediaAsset:C4D0BAQGNYUwkC1YEEQ",
+          "$recipeTypes": [
+            "com.linkedin.voyager.dash.deco.common.VectorImage"
+          ],
+          "rootUrl": "https://media.licdn.com/dms/image/v2/C4D0BAQGNYUwkC1YEEQ/company-logo_",
+          "artifacts": [
+            {
+              "width": 200,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "200_200/company-logo_200_200/0/1674548936157/_logo?e=1788998400&v=beta&t=wWNaPbb__JN-rLsgjSNn-wDrpYO3lXi7Fk1UH3URAlo",
+              "expiresAt": 1788998400000,
+              "height": 200,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 100,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "100_100/company-logo_100_100/0/1674548936157/_logo?e=1788998400&v=beta&t=Wy3jkC-jNfY8R9Wx4jrLqRpSLZJpqOfNHwzBF2rSjqI",
+              "expiresAt": 1788998400000,
+              "height": 100,
+              "$type": "com.linkedin.common.VectorArtifact"
+            },
+            {
+              "width": 400,
+              "$recipeTypes": [
+                "com.linkedin.voyager.dash.deco.common.VectorArtifact"
+              ],
+              "fileIdentifyingUrlPathSegment": "400_400/company-logo_400_400/0/1674548936157/_logo?e=1788998400&v=beta&t=ofd-prJf859NvQ3EqjAqa7-UN4t7AL2sEoVAqmvgjNk",
+              "expiresAt": 1788998400000,
+              "height": 400,
+              "$type": "com.linkedin.common.VectorArtifact"
+            }
+          ],
+          "$type": "com.linkedin.common.VectorImage"
+        }
+      }
+    }
+  ]
+}

@@ -149,8 +149,14 @@ register(ModelAdmin(
     model=SiteConfig,
     slug="siteconfig",
     label="Site Configuration",
-    list_display=["__str__", "chat_llm_provider", "chat_ai_model", "task_llm_provider", "task_ai_model"],
-    choices={"chat_llm_provider": LLMProvider, "task_llm_provider": LLMProvider},
+    list_display=[
+        "__str__", "expensive_llm_provider", "expensive_ai_model",
+        "cheap_llm_provider", "cheap_ai_model",
+    ],
+    choices={
+        "expensive_llm_provider": LLMProvider,
+        "cheap_llm_provider": LLMProvider,
+    },
     can_add=False,
     can_delete=False,
 ))
@@ -235,9 +241,9 @@ register(ModelAdmin(
     model=Lead,
     slug="lead",
     label="Lead",
-    list_display=["public_identifier", "linkedin_url", "disqualified", "human_takeover"],
+    list_display=["public_identifier", "headline", "current_title", "current_company", "disqualified", "human_takeover"],
     list_filter=["disqualified", "human_takeover"],
-    search_fields=["public_identifier", "linkedin_url", "urn"],
+    search_fields=["public_identifier", "linkedin_url", "urn", "headline", "current_company"],
     exclude_fields=["update_date"],
     actions=[
         AdminAction(name="mark_human_takeover", label="Human Takeover (Stop AI messages)", handler=_mark_human_takeover),
@@ -249,7 +255,7 @@ register(ModelAdmin(
     model=Deal,
     slug="deal",
     label="Deal",
-    list_display=["lead", "campaign", "assigned_profile", "state", "outcome", "connect_attempts"],
+    list_display=["lead", "campaign", "assigned_profile", "state", "outcome", "fit_score", "connect_attempts"],
     list_filter=["state", "outcome", "campaign", "assigned_profile"],
     search_fields=["lead__public_identifier", "reason"],
     exclude_fields=["update_date"],

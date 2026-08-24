@@ -117,7 +117,7 @@ def extract_facts(
         system = f"{system}\n\nContext for relevance:\n{context}"
 
     agent = Agent(
-        get_llm_model("task"),
+        get_llm_model("expensive"),
         system_prompt=system,
         output_type=FactList,
         model_settings={"temperature": 0.0, "timeout": 60},
@@ -275,7 +275,7 @@ def _request_memory_actions(
         f"are contamination — issue a DELETE for them.\n\n{base}"
     )
 
-    agent = Agent(get_llm_model("task"), model_settings={"temperature": 0.0, "timeout": 60})
+    agent = Agent(get_llm_model("expensive"), model_settings={"temperature": 0.0, "timeout": 60})
     text = run_agent_sync(agent.run(prompt)).output
     return _ReconcileResponse.model_validate(_parse_memory_response(text)).memory
 

@@ -297,14 +297,14 @@ class OnboardConfig:
     campaign_objective: str = ""
     booking_link: str = ""
     seed_urls: str = ""
-    chat_llm_provider: str = "openai"
-    chat_llm_api_key: str = ""
-    chat_ai_model: str = ""
-    chat_llm_api_base: str = ""
-    task_llm_provider: str = "openai"
-    task_llm_api_key: str = ""
-    task_ai_model: str = ""
-    task_llm_api_base: str = ""
+    expensive_llm_provider: str = "openai"
+    expensive_llm_api_key: str = ""
+    expensive_ai_model: str = ""
+    expensive_llm_api_base: str = ""
+    cheap_llm_provider: str = "openai"
+    cheap_llm_api_key: str = ""
+    cheap_ai_model: str = ""
+    cheap_llm_api_base: str = ""
     newsletter: bool = False
     connect_daily_limit: int = DEFAULT_CONNECT_DAILY_LIMIT
     connect_weekly_limit: int = DEFAULT_CONNECT_WEEKLY_LIMIT
@@ -330,8 +330,8 @@ _ACCOUNT_KEYS = {
     "legal_acceptance",
 }
 _LLM_KEYS = {
-    "chat_llm_provider", "chat_llm_api_key", "chat_ai_model", "chat_llm_api_base",
-    "task_llm_provider", "task_llm_api_key", "task_ai_model", "task_llm_api_base",
+    "expensive_llm_provider", "expensive_llm_api_key", "expensive_ai_model", "expensive_llm_api_base",
+    "cheap_llm_provider", "cheap_llm_api_key", "cheap_ai_model", "cheap_llm_api_base",
 }
 _ALL_KEYS = _CAMPAIGN_KEYS | _ACCOUNT_KEYS | _LLM_KEYS
 
@@ -349,7 +349,7 @@ def missing_keys() -> set[str]:
         keys |= _ACCOUNT_KEYS
 
     cfg = SiteConfig.load()
-    for role in ("chat", "task"):
+    for role in ("expensive", "cheap"):
         if not getattr(cfg, f"{role}_llm_provider"):
             keys.add(f"{role}_llm_provider")
         if not getattr(cfg, f"{role}_llm_api_key"):
@@ -608,14 +608,14 @@ def apply(config: OnboardConfig) -> None:
     cfg = SiteConfig.load()
     updated = False
     for field, val in [
-        ("chat_llm_provider", config.chat_llm_provider),
-        ("chat_llm_api_key", config.chat_llm_api_key),
-        ("chat_ai_model", config.chat_ai_model),
-        ("chat_llm_api_base", config.chat_llm_api_base),
-        ("task_llm_provider", config.task_llm_provider),
-        ("task_llm_api_key", config.task_llm_api_key),
-        ("task_ai_model", config.task_ai_model),
-        ("task_llm_api_base", config.task_llm_api_base),
+        ("expensive_llm_provider", config.expensive_llm_provider),
+        ("expensive_llm_api_key", config.expensive_llm_api_key),
+        ("expensive_ai_model", config.expensive_ai_model),
+        ("expensive_llm_api_base", config.expensive_llm_api_base),
+        ("cheap_llm_provider", config.cheap_llm_provider),
+        ("cheap_llm_api_key", config.cheap_llm_api_key),
+        ("cheap_ai_model", config.cheap_ai_model),
+        ("cheap_llm_api_base", config.cheap_llm_api_base),
     ]:
         if val:
             setattr(cfg, field, val)

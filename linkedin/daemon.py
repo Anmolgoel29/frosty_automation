@@ -23,7 +23,6 @@ from linkedin.conf import (
 )
 from linkedin.diagnostics import failure_diagnostics
 from linkedin.exceptions import AuthenticationError
-from linkedin.ml.qualifier import BayesianQualifier
 from linkedin.models import Task
 from linkedin.tasks.check_pending import handle_check_pending
 from linkedin.tasks.connect import handle_connect
@@ -171,31 +170,6 @@ def sync_sessions(sessions: dict) -> None:
     sessions.update(live)
 
 
-def _build_qualifiers(campaigns, cfg):
-    """Create a qualifier for every campaign, keyed by campaign PK."""
-    from crm.models import Lead
-
-    qualifiers: dict[int, BayesianQualifier] = {}
-    for campaign in campaigns:
-        q = BayesianQualifier(
-            seed=42,
-            n_mc_samples=cfg["qualification_n_mc_samples"],
-            campaign=campaign,
-        )
-        X, y = Lead.get_labeled_arrays(campaign)
-        if len(X) > 0:
-            q.warm_start(X, y)
-            logger.info(
-                colored("GP qualifier warm-started", "cyan")
-                + " on %d labelled samples (%d positive, %d negative)"
-                + " for campaign %s",
-                len(y), int((y == 1).sum()), int((y == 0).sum()), campaign,
-            )
-        qualifiers[campaign.pk] = q
-
-    return qualifiers
-
-
 # ------------------------------------------------------------------
 # Active-hours schedule guard
 # ------------------------------------------------------------------
@@ -263,12 +237,11 @@ class _AccountWorker(threading.Thread):
     the worker tears its own browser down.
     """
 
-    def __init__(self, session, qualifiers, spacer, stop_all):
+    def __init__(self, session, spacer, stop_all):
         profile = session.linkedin_profile
         super().__init__(name=profile.linkedin_username.split("@")[0], daemon=True)
         self.session = session
         self.profile_id = profile.pk
-        self._qualifiers = qualifiers
         self._spacer = spacer
         self._stop_all = stop_all
         self._stop_me = threading.Event()
@@ -365,10 +338,9 @@ class _AccountWorker(threading.Thread):
             task.mark_failed()
             return False
 
-        qualifier_for = self._qualifiers
         try:
             with failure_diagnostics(self.session):
-                handler(task, self.session, qualifier_for)
+                handler(task, self.session)
         except AuthenticationError:
             logger.warning("Session expired during %s — re-authenticating", task)
             try:
@@ -429,8 +401,6 @@ def run_daemon(sessions: dict):
         logger.error("No campaigns found — cannot start daemon")
         return
 
-    qualifiers = _build_qualifiers(campaigns, cfg)
-
     # Safe here and nowhere else: no worker exists yet, so any RUNNING row is
     # an orphan from a previous process rather than live work.
     recover_stale_running_tasks()
@@ -452,13 +422,7 @@ def run_daemon(sessions: dict):
             if not sessions:
                 logger.error("No usable LinkedIn accounts — waiting")
             else:
-                # A newly-attached campaign needs its own GP model; existing
-                # qualifiers are left alone so their in-memory state survives.
-                for campaign in campaigns_in(sessions):
-                    if campaign.pk not in qualifiers:
-                        qualifiers.update(_build_qualifiers([campaign], cfg))
-
-                _sync_workers(workers, sessions, qualifiers, spacer, stop_all)
+                _sync_workers(workers, sessions, spacer, stop_all)
 
                 from linkedin.tasks.scheduler import reconcile
                 reconcile(sessions)
@@ -474,7 +438,7 @@ def run_daemon(sessions: dict):
             worker.join(timeout=60)
 
 
-def _sync_workers(workers: dict, sessions: dict, qualifiers, spacer, stop_all) -> None:
+def _sync_workers(workers: dict, sessions: dict, spacer, stop_all) -> None:
     """Keep exactly one live worker per account in the roster."""
     for pk in list(workers):
         worker = workers[pk]
@@ -493,6 +457,6 @@ def _sync_workers(workers: dict, sessions: dict, qualifiers, spacer, stop_all) -
     for pk, session in sessions.items():
         if pk in workers:
             continue
-        worker = _AccountWorker(session, qualifiers, spacer, stop_all)
+        worker = _AccountWorker(session, spacer, stop_all)
         workers[pk] = worker
         worker.start()

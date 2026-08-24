@@ -96,20 +96,25 @@ def playwright_login(session: "AccountSession"):
     )
 
 
-def launch_browser(storage_state=None, display: str | None = None):
-    """Launch a headed Chromium, optionally on its own X display.
+def launch_browser(storage_state=None, display: str | None = None, headless: bool = False):
+    """Launch Chromium, headed by default, optionally on its own X display.
 
     ``display`` isolates this account's browser window from the others so the
     VNC viewer shows one account at a time instead of overlapping windows.
+    Ignored when ``headless`` is True — a headless browser draws nothing.
     """
-    logger.debug("Launching Playwright%s", f" on {display}" if display else "")
+    logger.debug(
+        "Launching Playwright%s%s",
+        f" on {display}" if display else "",
+        " (headless)" if headless else "",
+    )
     playwright = sync_playwright().start()
     try:
         # env= replaces the browser's whole environment rather than merging,
         # so copy the current one and override only DISPLAY.
-        launch_env = {**os.environ, "DISPLAY": display} if display else None
+        launch_env = {**os.environ, "DISPLAY": display} if display and not headless else None
         browser = playwright.chromium.launch(
-            headless=False, slow_mo=BROWSER_SLOW_MO, env=launch_env,
+            headless=headless, slow_mo=BROWSER_SLOW_MO, env=launch_env,
         )
         context = browser.new_context(storage_state=storage_state)
         context.set_default_timeout(BROWSER_DEFAULT_TIMEOUT_MS)
@@ -150,7 +155,9 @@ def start_browser_session(session: "AccountSession"):
         logger.info("Loading saved session for %s", session)
 
     session.page, session.context, session.browser, session.playwright = launch_browser(
-        storage_state=storage_state, display=session.ensure_display(),
+        storage_state=storage_state,
+        display=None if session.headless else session.ensure_display(),
+        headless=session.headless,
     )
 
     if not storage_state:
