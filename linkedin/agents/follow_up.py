@@ -183,7 +183,7 @@ def run_follow_up_agent(session, deal) -> FollowUpDecision:
     agent = Agent(
         get_llm_model("expensive"),
         output_type=FollowUpDecision,
-        model_settings={"temperature": 0.7, "timeout": 60},
+        model_settings={"temperature": 0.7, "timeout": 60, "thinking": "xhigh"},
     )
     decision = run_agent_sync(agent.run(system_prompt)).output
     if decision is None:

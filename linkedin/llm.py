@@ -50,7 +50,7 @@ _MAX_RETRIES = 8
 
 class _AgentRunner:
     """Owns one persistent asyncio loop on a dedicated daemon thread.
-
+nikkialvey
     Construct lazily via `_get_runner()` so importing this module is free.
     The thread is a daemon, so no explicit shutdown is needed — it ends
     with the process.
