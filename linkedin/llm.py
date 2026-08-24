@@ -89,8 +89,35 @@ def _get_runner() -> _AgentRunner:
 
 
 def run_agent_sync(coro: Awaitable[_T]) -> _T:
-    """Drive *coro* on the dedicated LLM runner thread + loop."""
-    return _get_runner().run(coro)
+    """Drive *coro* on the dedicated LLM runner thread + loop.
+
+    Bridges the calling thread's active OpenTelemetry context onto the
+    runner thread first. Without this, a span opened via
+    `linkedin/tracing.py:task_span()` on the calling thread (e.g. the
+    daemon's per-account worker) would never show up as the parent of
+    pydantic-ai's own per-model-call span: `asyncio.run_coroutine_threadsafe`
+    schedules *coro* as a new Task on the runner loop, and `Task.__init__`
+    snapshots contextvars state *at that moment, on the runner thread* — not
+    the calling thread's state at the point this function was called. The
+    context must therefore be captured here (synchronously, still on the
+    calling thread) and explicitly re-attached once execution reaches the
+    runner thread. Cheap and side-effect-free when no span is open — a bare
+    OpenTelemetry context is a handful of contextvars, not a network call.
+    """
+    from opentelemetry import context as otel_context
+
+    ctx = otel_context.get_current()
+    return _get_runner().run(_run_with_otel_context(coro, ctx))
+
+
+async def _run_with_otel_context(coro: Awaitable[_T], ctx) -> _T:
+    from opentelemetry import context as otel_context
+
+    token = otel_context.attach(ctx)
+    try:
+        return await coro
+    finally:
+        otel_context.detach(token)
 
 
 # ── Per-provider builders ────────────────────────────────────────────

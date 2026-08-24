@@ -21,6 +21,7 @@ from linkedin.conf import (
     ENABLE_ACTIVE_HOURS,
     REST_DAYS,
 )
+from linkedin import tracing
 from linkedin.diagnostics import failure_diagnostics
 from linkedin.exceptions import AuthenticationError
 from linkedin.models import Task
@@ -338,8 +339,23 @@ class _AccountWorker(threading.Thread):
             task.mark_failed()
             return False
 
+        # public_id is only in the payload for check_pending/follow_up
+        # (they act on a lead the task was enqueued for); a connect task's
+        # payload carries just campaign_id — its target lead is picked
+        # inside run_qualification, which backfills it via
+        # tracing.tag_current_span() once known.
+        public_id = task.payload.get("public_id")
+        span = tracing.task_span(
+            f"task.{task.task_type}",
+            session_id=tracing.session_id_for(campaign_id=campaign.pk, public_id=public_id),
+            task_id=task.pk,
+            task_type=task.task_type,
+            campaign=campaign.name,
+            linkedin_profile=self.session.linkedin_profile.linkedin_username,
+            lead_public_identifier=public_id,
+        )
         try:
-            with failure_diagnostics(self.session):
+            with span, failure_diagnostics(self.session):
                 handler(task, self.session)
         except AuthenticationError:
             logger.warning("Session expired during %s — re-authenticating", task)

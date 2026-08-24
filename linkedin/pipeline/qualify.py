@@ -72,6 +72,7 @@ def run_qualification(session) -> str | None:
 
 
 def _run_qualification_locked(session) -> str | None:
+    from linkedin import tracing
     from linkedin.db.deals import create_disqualified_deal
     from linkedin.ml.dossier import build_dossier_text
     from linkedin.ml.qualifier import qualify_cheap, qualify_with_llm
@@ -84,6 +85,15 @@ def _run_qualification_locked(session) -> str | None:
 
     public_id = candidate.public_identifier
     campaign = session.campaign
+
+    # A connect task's payload only carries campaign_id — this is where its
+    # target lead is actually picked, so backfill it onto the task_span the
+    # daemon already opened (session_id too: connect tasks start with none,
+    # since it's derived from the lead half of the pair).
+    tracing.tag_current_span(
+        session_id=tracing.session_id_for(campaign_id=campaign.pk, public_id=public_id),
+        lead_public_identifier=public_id,
+    )
 
     disqualify, cheap_reason = qualify_cheap(
         candidate, campaign.product_docs, campaign.campaign_objective,
