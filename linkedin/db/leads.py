@@ -4,6 +4,7 @@ import time
 from typing import Dict, Any, Optional
 
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from linkedin.url_utils import url_to_public_id, public_id_to_url
 from linkedin.enums import ProfileState
@@ -45,6 +46,53 @@ def _coarse_fields_from_profile(profile: Dict[str, Any]) -> Dict[str, str]:
     }
 
 
+def ensure_coarse_fields(session, lead) -> bool:
+    """Backfill a Lead's coarse fields when they predate the coarse-field cache.
+
+    The cheap qualification prefilter reads exactly two columns —
+    ``headline`` and ``about`` (ml/qualifier.py:qualify_cheap) — so a lead
+    that never had them filled reaches it blank and can never be judged:
+    the prompt passes every such lead through to the expensive dossier
+    stage, which is precisely the cost the cheap stage exists to avoid.
+
+    Rows discovered before those columns existed, and url-only seeds
+    (setup/seeds.py, setup/freemium.py), are both in that state.
+    ``coarse_scraped_at`` marks the rows whose coarse fields came from a
+    real scrape; anything older gets exactly one repair scrape here.
+
+    One profile fetch, only ever for un-repaired rows, so the cost drains
+    away with the legacy backlog. Runs under ``campaign_lock`` like the
+    dossier scrape that would otherwise follow it.
+
+    Returns True if the row now carries usable coarse fields.
+    """
+    if lead.coarse_scraped_at:
+        return bool(lead.headline or lead.about)
+
+    if lead.headline or lead.about:
+        # Real scrape, just older than the marker column itself.
+        lead.coarse_scraped_at = timezone.now()
+        lead.save(update_fields=["coarse_scraped_at"])
+        return True
+
+    profile = lead.get_profile(session)
+    if not profile:
+        # Private/deleted/restricted. Leave the marker null and let
+        # qualification proceed — the dossier stage disqualifies on the
+        # same unreachable profile a moment later.
+        logger.warning("Coarse-field repair scrape failed for %s", lead.public_identifier)
+        return False
+
+    fields = _coarse_fields_from_profile(profile)
+    for name, value in fields.items():
+        setattr(lead, name, value)
+    lead.coarse_scraped_at = timezone.now()
+    lead.save(update_fields=[*fields, "coarse_scraped_at"])
+
+    logger.info("Backfilled coarse fields for %s", lead.public_identifier)
+    return bool(lead.headline or lead.about)
+
+
 def create_enriched_lead(session, url: str, profile: Dict[str, Any]) -> Optional[int]:
     """Create Lead with full profile data and embedding.
 
@@ -72,6 +120,7 @@ def create_enriched_lead(session, url: str, profile: Dict[str, Any]) -> Optional
                 return None
             lead = Lead.objects.create(
                 linkedin_url=clean_url, public_identifier=public_id,
+                coarse_scraped_at=timezone.now(),
                 **_coarse_fields_from_profile(profile),
             )
             _cache_urn_from_profile(lead, profile)

@@ -29,6 +29,12 @@ class Lead(models.Model):
     current_company = models.CharField(max_length=200, blank=True, default="")
     industry = models.CharField(max_length=200, blank=True, default="")
     location_name = models.CharField(max_length=200, blank=True, default="")
+    # When the coarse fields above were last filled from a real scrape.
+    # Null means "predates the coarse-field cache" — rows discovered before
+    # those columns existed, or seeded url-only — and is the signal
+    # db/leads.py:ensure_coarse_fields uses to re-scrape them exactly once,
+    # on their way into qualification.
+    coarse_scraped_at = models.DateTimeField(null=True, blank=True)
     disqualified = models.BooleanField(default=False)
     human_takeover = models.BooleanField(
         default=False,

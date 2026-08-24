@@ -111,6 +111,7 @@ class Lead(Base):
     current_company: Mapped[str] = mapped_column(String(200), default="")
     industry: Mapped[str] = mapped_column(String(200), default="")
     location_name: Mapped[str] = mapped_column(String(200), default="")
+    coarse_scraped_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     disqualified: Mapped[bool] = mapped_column(Boolean, default=False)
     human_takeover: Mapped[bool] = mapped_column(Boolean, default=False)
     creation_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))

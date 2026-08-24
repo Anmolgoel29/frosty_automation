@@ -133,6 +133,117 @@ class TestCreateEnrichedLead:
 
 
 @pytest.mark.django_db
+class TestEnsureCoarseFields:
+    """One-shot repair of leads whose headline/about predate those columns.
+
+    Blank coarse fields make the cheap prefilter a no-op (it is told to pass
+    through when they're empty), so those rows must be re-scraped once.
+    """
+
+    def _legacy_lead(self, **overrides):
+        """A Lead as the pre-cascade code left it: no coarse fields, no marker."""
+        from crm.models import Lead
+        fields = {
+            "linkedin_url": "https://www.linkedin.com/in/alice/",
+            "public_identifier": "alice",
+            **overrides,
+        }
+        return Lead.objects.create(**fields)
+
+    def test_rescrapes_and_stamps_blank_legacy_lead(self, fake_session):
+        from unittest.mock import patch
+        from linkedin.db.leads import ensure_coarse_fields
+
+        lead = self._legacy_lead()
+        scraped = {**SAMPLE_PROFILE, "summary": "I run an agency."}
+
+        with patch("crm.models.Lead.get_profile", return_value=scraped) as mock_scrape:
+            assert ensure_coarse_fields(fake_session, lead) is True
+
+        mock_scrape.assert_called_once()
+        lead.refresh_from_db()
+        assert lead.headline == "Engineer"
+        assert lead.about == "I run an agency."
+        assert lead.coarse_scraped_at is not None
+
+    def test_stamped_lead_is_never_rescraped_again(self, fake_session):
+        """The marker — not the field contents — is what stops the repair.
+
+        A profile with genuinely no headline and no About must not be
+        re-scraped on every pass through qualification.
+        """
+        from unittest.mock import patch
+        from linkedin.db.leads import ensure_coarse_fields
+
+        lead = self._legacy_lead()
+        with patch("crm.models.Lead.get_profile", return_value={"positions": []}):
+            ensure_coarse_fields(fake_session, lead)
+
+        lead.refresh_from_db()
+        assert lead.coarse_scraped_at is not None
+        assert lead.headline == "" and lead.about == ""
+
+        with patch("crm.models.Lead.get_profile") as mock_scrape:
+            assert ensure_coarse_fields(fake_session, lead) is False
+        mock_scrape.assert_not_called()
+
+    def test_lead_with_existing_coarse_data_is_stamped_without_scraping(self, fake_session):
+        from unittest.mock import patch
+        from linkedin.db.leads import ensure_coarse_fields
+
+        lead = self._legacy_lead(headline="Founder")
+
+        with patch("crm.models.Lead.get_profile") as mock_scrape:
+            assert ensure_coarse_fields(fake_session, lead) is True
+
+        mock_scrape.assert_not_called()
+        lead.refresh_from_db()
+        assert lead.coarse_scraped_at is not None
+
+    def test_unreachable_profile_leaves_marker_null(self, fake_session):
+        """Private/deleted profiles fall through to the dossier stage, which
+        disqualifies them on the same unreachable profile."""
+        from unittest.mock import patch
+        from linkedin.db.leads import ensure_coarse_fields
+
+        lead = self._legacy_lead()
+
+        with patch("crm.models.Lead.get_profile", return_value=None):
+            assert ensure_coarse_fields(fake_session, lead) is False
+
+        lead.refresh_from_db()
+        assert lead.coarse_scraped_at is None
+
+    def test_newly_discovered_leads_are_stamped_at_creation(self, fake_session):
+        from crm.models import Lead
+
+        create_enriched_lead(
+            fake_session,
+            "https://www.linkedin.com/in/alice/",
+            SAMPLE_PROFILE,
+        )
+        lead = Lead.objects.get(public_identifier="alice")
+        assert lead.coarse_scraped_at is not None
+
+    def test_stamped_lead_needs_no_scrape_in_qualification(self, fake_session):
+        """A lead created under the new standard never triggers the repair."""
+        from unittest.mock import patch
+        from crm.models import Lead
+        from linkedin.db.leads import ensure_coarse_fields
+
+        create_enriched_lead(
+            fake_session,
+            "https://www.linkedin.com/in/alice/",
+            SAMPLE_PROFILE,
+        )
+        lead = Lead.objects.get(public_identifier="alice")
+
+        with patch("crm.models.Lead.get_profile") as mock_scrape:
+            assert ensure_coarse_fields(fake_session, lead) is True
+        mock_scrape.assert_not_called()
+
+
+@pytest.mark.django_db
 class TestPromoteLeadToDeal:
     def test_creates_deal(self, fake_session):
         from crm.models import Deal

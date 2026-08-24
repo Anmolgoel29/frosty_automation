@@ -74,6 +74,7 @@ def run_qualification(session) -> str | None:
 def _run_qualification_locked(session) -> str | None:
     from linkedin import tracing
     from linkedin.db.deals import create_disqualified_deal
+    from linkedin.db.leads import ensure_coarse_fields
     from linkedin.ml.dossier import build_dossier_text
     from linkedin.ml.qualifier import qualify_cheap, qualify_with_llm
 
@@ -94,6 +95,11 @@ def _run_qualification_locked(session) -> str | None:
         session_id=tracing.session_id_for(campaign_id=campaign.pk, public_id=public_id),
         lead_public_identifier=public_id,
     )
+
+    # Leads that predate the coarse-field cache reach the cheap stage with
+    # nothing to read; repair them here rather than let it rubber-stamp
+    # every one of them straight through to the expensive stage.
+    ensure_coarse_fields(session, candidate)
 
     disqualify, cheap_reason = qualify_cheap(
         candidate, campaign.product_docs, campaign.campaign_objective,
