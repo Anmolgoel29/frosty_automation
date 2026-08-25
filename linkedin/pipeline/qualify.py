@@ -13,6 +13,14 @@ Two-stage cascade:
 
 The cheap stage exists to keep the dossier's several LinkedIn reads off
 leads that were never going to qualify.
+
+Both stages return the model identity alongside their decision (see
+``ml/qualifier.py``), and each call is wrapped in its own
+``tracing.agent_run()`` span carrying the model, the lead, the campaign,
+and the decision + reasoning as output — so *which* LLM qualified or
+disqualified a lead, and why, is a distinct, filterable Phoenix trace
+rather than something you'd have to reconstruct from the CRM database.
+The same fields also go to the process log at INFO.
 """
 from __future__ import annotations
 
@@ -91,24 +99,39 @@ def _run_qualification_locked(session) -> str | None:
     # target lead is actually picked, so backfill it onto the task_span the
     # daemon already opened (session_id too: connect tasks start with none,
     # since it's derived from the lead half of the pair).
-    tracing.tag_current_span(
-        session_id=tracing.session_id_for(campaign_id=campaign.pk, public_id=public_id),
-        lead_public_identifier=public_id,
-    )
+    session_id = tracing.session_id_for(campaign_id=campaign.pk, public_id=public_id)
+    tracing.tag_current_span(session_id=session_id, lead_public_identifier=public_id)
 
     # Leads that predate the coarse-field cache reach the cheap stage with
     # nothing to read; repair them here rather than let it rubber-stamp
     # every one of them straight through to the expensive stage.
     ensure_coarse_fields(session, candidate)
 
-    disqualify, cheap_reason = qualify_cheap(
-        candidate, campaign.product_docs, campaign.campaign_objective,
+    with tracing.agent_run("qualify_cheap", session_id=session_id) as span:
+        decision, model_id = qualify_cheap(
+            candidate, campaign.product_docs, campaign.campaign_objective,
+        )
+        tracing.finish_agent_run(
+            span,
+            output=f"disqualify={decision.disqualify} — {decision.reason}",
+            model=model_id,
+            lead_public_identifier=public_id,
+            campaign=campaign.name,
+            disqualify=decision.disqualify,
+            reason=decision.reason,
+        )
+    logger.info(
+        "%s cheap stage (%s): %s — %s",
+        public_id, model_id,
+        colored("DISQUALIFY", "red") if decision.disqualify else colored("PASS", "green"),
+        decision.reason,
     )
-    if disqualify:
+
+    if decision.disqualify:
         # Skips not just the expensive LLM call but the whole dossier scrape
         # behind it — several LinkedIn reads per lead (see ml/dossier.py).
         logger.debug("%s cheap-disqualified — skipping dossier + expensive stage", public_id)
-        create_disqualified_deal(session, public_id, reason=cheap_reason)
+        create_disqualified_deal(session, public_id, reason=decision.reason)
         return public_id
 
     dossier_text = build_dossier_text(session, candidate)
@@ -117,12 +140,36 @@ def _run_qualification_locked(session) -> str | None:
         create_disqualified_deal(session, public_id, reason="profile not reachable")
         return public_id
 
-    qualified, fit_score, reason = qualify_with_llm(
-        dossier_text,
-        product_docs=campaign.product_docs,
-        campaign_objective=campaign.campaign_objective,
+    with tracing.agent_run("qualify_with_llm", session_id=session_id) as span:
+        expensive_decision, expensive_model_id = qualify_with_llm(
+            dossier_text,
+            product_docs=campaign.product_docs,
+            campaign_objective=campaign.campaign_objective,
+        )
+        tracing.finish_agent_run(
+            span,
+            output=(
+                f"qualified={expensive_decision.qualified} "
+                f"(fit_score={expensive_decision.fit_score}) — {expensive_decision.reason}"
+            ),
+            model=expensive_model_id,
+            lead_public_identifier=public_id,
+            campaign=campaign.name,
+            qualified=expensive_decision.qualified,
+            fit_score=expensive_decision.fit_score,
+            reason=expensive_decision.reason,
+        )
+    logger.info(
+        "%s expensive stage (%s): %s (fit_score=%d) — %s",
+        public_id, expensive_model_id,
+        colored("QUALIFIED", "green") if expensive_decision.qualified else colored("REJECTED", "red"),
+        expensive_decision.fit_score, expensive_decision.reason,
     )
-    _save_qualification_result(session, public_id, qualified, fit_score, reason)
+
+    _save_qualification_result(
+        session, public_id,
+        expensive_decision.qualified, expensive_decision.fit_score, expensive_decision.reason,
+    )
     return public_id
 
 
@@ -138,11 +185,6 @@ def _save_qualification_result(session, public_id: str, qualified: bool, fit_sco
         except ValueError as e:
             logger.warning("Cannot promote %s: %s — disqualifying", public_id, e)
             create_disqualified_deal(session, public_id, reason=str(e))
-            return
-        logger.info(
-            "%s %s (fit_score=%d): %s",
-            public_id, colored("QUALIFIED", "green", attrs=["bold"]), fit_score, reason,
-        )
     else:
         create_disqualified_deal(session, public_id, reason=reason)
 

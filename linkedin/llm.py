@@ -50,7 +50,7 @@ _MAX_RETRIES = 8
 
 class _AgentRunner:
     """Owns one persistent asyncio loop on a dedicated daemon thread.
-nikkialvey
+
     Construct lazily via `_get_runner()` so importing this module is free.
     The thread is a daemon, so no explicit shutdown is needed — it ends
     with the process.
@@ -127,10 +127,19 @@ async def _run_with_otel_context(coro: Awaitable[_T], ctx) -> _T:
 
 def _build_openai(model_name, api_key, api_base=None):
     from openai import AsyncOpenAI
-    from pydantic_ai.models.openai import OpenAIModel
+    from pydantic_ai.models.openai import OpenAIResponsesModel
     from pydantic_ai.providers.openai import OpenAIProvider
     client = AsyncOpenAI(api_key=api_key, max_retries=_MAX_RETRIES)
-    return OpenAIModel(model_name, provider=OpenAIProvider(openai_client=client))
+    # Responses API, not Chat Completions (OpenAIModel/OpenAIChatModel): the
+    # reasoning-model family (o-series, GPT-5.1+) rejects structured output
+    # (function tools) combined with `reasoning_effort` on
+    # /v1/chat/completions — 400 invalid_request_error, "Function tools with
+    # reasoning_effort are not supported ... use /v1/responses" — which is
+    # exactly what every Agent(..., output_type=...) call site here sends
+    # once `thinking` is set (see agents/follow_up.py). Only /v1/responses
+    # supports reasoning + tool calls together, so that's the only mode this
+    # builder can safely support for the real `openai` provider.
+    return OpenAIResponsesModel(model_name, provider=OpenAIProvider(openai_client=client))
 
 
 def _build_anthropic(model_name, api_key, api_base=None):

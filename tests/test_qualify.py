@@ -6,7 +6,11 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+from linkedin.ml.qualifier import CheapDisqualifyDecision, QualificationDecision
 from linkedin.pipeline.qualify import run_qualification
+
+CHEAP_MODEL = "anthropic:claude-haiku"
+EXPENSIVE_MODEL = "anthropic:claude-opus"
 
 
 def _create_lead(lead_id, public_id, **coarse):
@@ -30,9 +34,11 @@ class TestRunQualificationCascade:
         session = MagicMock()
         lead = _create_lead(1, "alice", headline="Student")
 
+        cheap_decision = CheapDisqualifyDecision(disqualify=True, reason="wrong seniority")
+
         with (
             patch("linkedin.pipeline.qualify.fetch_next_qualification_candidate", return_value=lead),
-            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(True, "wrong seniority")) as mock_cheap,
+            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(cheap_decision, CHEAP_MODEL)) as mock_cheap,
             patch("linkedin.ml.qualifier.qualify_with_llm") as mock_expensive,
             patch("linkedin.ml.dossier.build_dossier_text") as mock_dossier,
             patch("linkedin.db.deals.create_disqualified_deal") as mock_disqualify,
@@ -49,11 +55,13 @@ class TestRunQualificationCascade:
         session = MagicMock()
         lead = _create_lead(1, "alice")
 
+        expensive_decision = QualificationDecision(qualified=True, fit_score=4, reason="Good fit")
+
         with (
             patch("linkedin.pipeline.qualify.fetch_next_qualification_candidate", return_value=lead),
-            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(False, "")),
+            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(CheapDisqualifyDecision(disqualify=False, reason=""), CHEAP_MODEL)),
             patch("linkedin.ml.dossier.build_dossier_text", return_value="Lead headline: engineer at acme"),
-            patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(True, 4, "Good fit")) as mock_expensive,
+            patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(expensive_decision, EXPENSIVE_MODEL)) as mock_expensive,
             patch("linkedin.db.leads.promote_lead_to_deal") as mock_promote,
         ):
             result = run_qualification(session)
@@ -68,9 +76,9 @@ class TestRunQualificationCascade:
 
         with (
             patch("linkedin.pipeline.qualify.fetch_next_qualification_candidate", return_value=lead),
-            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(False, "")),
+            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(CheapDisqualifyDecision(disqualify=False, reason=""), CHEAP_MODEL)),
             patch("linkedin.ml.dossier.build_dossier_text", return_value="Lead headline: engineer at acme"),
-            patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(False, 1, "Bad fit")),
+            patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(QualificationDecision(qualified=False, fit_score=1, reason="Bad fit"), EXPENSIVE_MODEL)),
             patch("linkedin.db.deals.create_disqualified_deal") as mock_disqualify,
         ):
             run_qualification(session)
@@ -82,7 +90,7 @@ class TestRunQualificationCascade:
 
         with (
             patch("linkedin.pipeline.qualify.fetch_next_qualification_candidate", return_value=lead),
-            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(False, "")),
+            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(CheapDisqualifyDecision(disqualify=False, reason=""), CHEAP_MODEL)),
             patch("linkedin.ml.dossier.build_dossier_text", return_value=None),
             patch("linkedin.ml.qualifier.qualify_with_llm") as mock_expensive,
             patch("linkedin.db.deals.create_disqualified_deal") as mock_disqualify,
@@ -98,9 +106,9 @@ class TestRunQualificationCascade:
 
         with (
             patch("linkedin.pipeline.qualify.fetch_next_qualification_candidate", return_value=lead),
-            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(False, "")),
+            patch("linkedin.ml.qualifier.qualify_cheap", return_value=(CheapDisqualifyDecision(disqualify=False, reason=""), CHEAP_MODEL)),
             patch("linkedin.ml.dossier.build_dossier_text", return_value="Lead headline: engineer at acme"),
-            patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(True, 5, "Good fit")),
+            patch("linkedin.ml.qualifier.qualify_with_llm", return_value=(QualificationDecision(qualified=True, fit_score=5, reason="Good fit"), EXPENSIVE_MODEL)),
             patch("linkedin.db.leads.promote_lead_to_deal", side_effect=ValueError("no company_name")),
             patch("linkedin.db.deals.create_disqualified_deal") as mock_disqualify,
         ):

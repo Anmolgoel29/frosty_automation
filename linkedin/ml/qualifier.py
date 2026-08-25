@@ -45,15 +45,20 @@ class CheapDisqualifyDecision(BaseModel):
     reason: str = Field(description="Brief explanation for the decision")
 
 
-def qualify_cheap(lead, product_docs: str, campaign_objective: str) -> tuple[bool, str]:
+def qualify_cheap(
+        lead, product_docs: str, campaign_objective: str,
+) -> tuple[CheapDisqualifyDecision, str]:
     """Cheap/fast LLM call that only ever disqualifies obvious mismatches.
 
     Sees exactly two fields — the lead's headline and About section, both
     cached on the Lead row at discovery time (see
     db/leads.py:create_enriched_lead). No scrape, no network.
 
-    Returns (disqualify, reason). A False result means "let the expensive
-    stage decide", not "qualified".
+    Returns (decision, model_id). ``decision.disqualify`` False means "let
+    the expensive stage decide", not "qualified". ``model_id`` is the
+    ``provider:model`` that actually made the call — read off the built
+    model rather than re-read from SiteConfig, so the decision log names
+    the model without costing a query.
     """
     from pydantic_ai import Agent
 
@@ -69,13 +74,14 @@ def qualify_cheap(lead, product_docs: str, campaign_objective: str) -> tuple[boo
         about=lead.about,
     )
 
+    model = get_llm_model("cheap")
     agent = Agent(
-        get_llm_model("cheap"),
+        model,
         output_type=CheapDisqualifyDecision,
         model_settings={"temperature": 0.0, "timeout": 30},
     )
     decision = run_agent_sync(agent.run(prompt)).output
-    return decision.disqualify, decision.reason
+    return decision, model.model_id
 
 
 # ---------------------------------------------------------------------------
@@ -92,14 +98,17 @@ class QualificationDecision(BaseModel):
     reason: str = Field(description="Brief explanation for the decision")
 
 
-def qualify_with_llm(profile_text: str, product_docs: str, campaign_objective: str) -> tuple[bool, int, str]:
+def qualify_with_llm(
+        profile_text: str, product_docs: str, campaign_objective: str,
+) -> tuple[QualificationDecision, str]:
     """Call the expensive LLM to qualify a lead on its full dossier.
 
     ``profile_text`` is the rendered dossier from
     ``ml/dossier.py:render_dossier`` — labelled profile, posts, full
     experience and current-employer company pages.
 
-    Returns (qualified, fit_score, reason).
+    Returns (decision, model_id) — see ``qualify_cheap`` for why the model
+    identity comes back alongside the decision.
     """
     from pydantic_ai import Agent
 
@@ -114,14 +123,15 @@ def qualify_with_llm(profile_text: str, product_docs: str, campaign_objective: s
         profile_text=profile_text,
     )
 
+    model = get_llm_model("expensive")
     agent = Agent(
-        get_llm_model("expensive"),
+        model,
         output_type=QualificationDecision,
         model_settings={"temperature": 0.7, "timeout": 60},
     )
     decision = run_agent_sync(agent.run(prompt)).output
 
-    return decision.qualified, decision.fit_score, decision.reason
+    return decision, model.model_id
 
 
 # ---------------------------------------------------------------------------

@@ -34,6 +34,20 @@ partway through it: a ``connect`` task's payload only carries
 ``campaign_id`` — the lead it ends up qualifying/connecting is picked
 inside ``run_qualification`` — so ``pipeline/qualify.py`` calls it once the
 candidate is resolved.
+
+**Per-decision tagging.** One Task can drive several distinct LLM
+decisions — the qualification cascade's cheap and expensive stages, run
+per candidate lead, can both fire more than once inside a single
+``connect`` task if the backlog serves up a few obvious disqualifies
+before a lead that promotes. ``agent_run()``/``finish_agent_run()`` open
+one child span per such decision (kind ``AGENT``, distinct from
+pydantic-ai's own ``LLM``-kind span nested under it), carrying the model
+identity, the lead, and the decision + reasoning as searchable
+output/metadata — so each qualify_cheap/qualify_with_llm call is a
+separately browsable, separately labeled span in Phoenix rather than an
+anonymous leaf under the shared Task trace. ``pipeline/qualify.py`` is the
+current caller; the same pattern applies to any other per-decision LLM
+call inside a task.
 """
 from __future__ import annotations
 
@@ -152,6 +166,70 @@ def task_span(name: str, *, session_id: str = "", **metadata):
             yield span
     finally:
         _current_metadata.reset(token)
+
+
+@contextlib.contextmanager
+def agent_run(name: str, *, session_id: str = ""):
+    """Open a span for one individual agent/LLM-decision run.
+
+    ``task_span()`` is one span per daemon Task — but a single Task can
+    drive several distinct LLM decisions (a ``connect`` task's
+    ``qualify_source`` loop can run the cheap *and* expensive qualifier
+    over several candidate leads before landing one that promotes to
+    READY_TO_CONNECT). Without a finer-grained span, all of those decisions
+    land as anonymous nested "LLM" spans under one Task trace, indistinguishable
+    from each other in Phoenix. ``agent_run`` opens one child span per
+    decision — kind ``AGENT`` so Phoenix renders it distinctly from the
+    ``LLM``-kind span pydantic-ai's own instrumentation nests under it —
+    named for what ran (e.g. ``"qualify_cheap"``, ``"qualify_with_llm"``).
+
+    Call ``finish_agent_run(span, ...)`` once the decision is known, inside
+    the same ``with`` block, to attach the model identity, full lead/task
+    context, and the decision + reasoning as the span's searchable output.
+    Splitting open/finish this way (rather than passing metadata up front)
+    means one `metadata` write covers everything — no incremental-patch
+    machinery like ``tag_current_span`` needs, since (unlike task_span) the
+    call that opens an agent_run and the call that finishes it are always
+    the same function.
+
+    No-op (yields None) when tracing isn't enabled, exactly like task_span.
+    """
+    if not _ENABLED:
+        yield None
+        return
+
+    from openinference.instrumentation import get_session_attributes, get_span_kind_attributes
+    from opentelemetry import trace as otel_trace
+
+    attributes = get_span_kind_attributes("agent")
+    if session_id:
+        attributes.update(get_session_attributes(session_id=session_id))
+
+    tracer = otel_trace.get_tracer(__name__)
+    with tracer.start_as_current_span(name, attributes=attributes) as span:
+        yield span
+
+
+def finish_agent_run(span, *, output: str, **metadata) -> None:
+    """Record an agent_run's outcome: its output text plus full context.
+
+    Call once, after the LLM decision is known, with everything that
+    should be visible/searchable on this span — model identity, lead
+    identity, campaign, and the decision fields themselves (e.g.
+    ``disqualify=``/``reason=`` or ``qualified=``/``fit_score=``/``reason=``).
+    No-op when tracing is disabled or *span* is None (the value ``agent_run``
+    yields in that case) — callers don't need to branch on whether tracing
+    is on.
+    """
+    if not _ENABLED or span is None:
+        return
+
+    from openinference.instrumentation import get_metadata_attributes, get_output_attributes
+
+    span.set_attributes(get_output_attributes(output))
+    clean = {k: v for k, v in metadata.items() if v not in (None, "")}
+    if clean:
+        span.set_attributes(get_metadata_attributes(metadata=clean))
 
 
 def tag_current_span(*, session_id: str = "", **metadata) -> None:
