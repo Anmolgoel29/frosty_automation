@@ -216,7 +216,11 @@ def on_deal_state_entered(deal) -> None:
         backoff = deal.backoff_hours or CAMPAIGN_CONFIG["check_pending_recheck_after_hours"]
         enqueue_check_pending(campaign_id, public_id, backoff_hours=backoff, profile=profile)
     else:
-        enqueue_follow_up(campaign_id, public_id, profile)
+        # Fires the moment a connect/check_pending task observes an accepted
+        # invite — no delay, so the account's next claim (top-priority,
+        # tied with check_pending) sends the first message right away
+        # instead of waiting out the generic enqueue_follow_up default.
+        enqueue_follow_up(campaign_id, public_id, profile, delay_seconds=0)
 
 
 # ── Reconciliation ────────────────────────────────────────────────────

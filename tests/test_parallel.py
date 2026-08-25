@@ -77,6 +77,22 @@ class TestTaskClaiming:
         assert claimed.started_at is None
         assert Task.objects.claim_for(fake_session.linkedin_profile.pk) is not None
 
+    def test_claim_prioritizes_messaging_over_connect(self, fake_session):
+        """follow_up and check_pending share top priority (both are messaging-
+        adjacent — check_pending is what discovers an accepted invite and
+        hands it to follow_up), so connect claims last regardless of
+        insertion order or which is chronologically oldest."""
+        connect = _make_task(fake_session, task_type=Task.TaskType.CONNECT)
+        check_pending = _make_task(fake_session, task_type=Task.TaskType.CHECK_PENDING, public_id="a")
+        follow_up = _make_task(fake_session, task_type=Task.TaskType.FOLLOW_UP, public_id="b")
+
+        first = Task.objects.claim_for(fake_session.linkedin_profile.pk)
+        second = Task.objects.claim_for(fake_session.linkedin_profile.pk)
+        third = Task.objects.claim_for(fake_session.linkedin_profile.pk)
+
+        assert {first.pk, second.pk} == {check_pending.pk, follow_up.pk}
+        assert third.pk == connect.pk
+
     def test_seconds_to_next_is_per_account(self, fake_session, second_session):
         task = _make_task(second_session)
         task.scheduled_at = timezone.now() + timezone.timedelta(hours=2)

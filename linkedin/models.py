@@ -273,8 +273,17 @@ class TaskQuerySet(models.QuerySet):
         RUNNING inside the same transaction that locks it: two workers can
         never end up holding the same task. ``SKIP LOCKED`` means a worker
         never waits on a row another worker already took.
+
+        Among due tasks, messaging comes first: ``follow_up`` (an actual
+        message to a connected lead) and ``check_pending`` (polling a pending
+        invite — the path that discovers an accepted connection and hands it
+        straight to follow_up) share top priority, ahead of ``connect`` (a
+        connection request, and the account's own search/scan loop when its
+        ready pool is empty). Ties within a priority band fall back to
+        ``scheduled_at`` so backlog within one type still runs oldest-first.
         """
         from django.db import transaction
+        from django.db.models import Case, When
 
         with transaction.atomic():
             task = (
@@ -284,7 +293,15 @@ class TaskQuerySet(models.QuerySet):
                     linkedin_profile_id=linkedin_profile_id,
                     scheduled_at__lte=timezone.now(),
                 )
-                .order_by("scheduled_at")
+                .annotate(
+                    priority=Case(
+                        When(task_type=Task.TaskType.FOLLOW_UP, then=0),
+                        When(task_type=Task.TaskType.CHECK_PENDING, then=0),
+                        When(task_type=Task.TaskType.CONNECT, then=1),
+                        default=2,
+                    ),
+                )
+                .order_by("priority", "scheduled_at")
                 .first()
             )
             if task is None:
