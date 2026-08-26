@@ -4,6 +4,18 @@
 <h1>Dashboard</h1>
 <div class="stat-grid">
     <div class="stat-tile">
+        <div class="stat-label">Profiles Scanned</div>
+        <div class="stat-value">{{ profiles_scanned }}</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-label">Leads Messaged</div>
+        <div class="stat-value">{{ leads_messaged }}</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-label">Leads Replied</div>
+        <div class="stat-value">{{ leads_replied }}</div>
+    </div>
+    <div class="stat-tile">
         <div class="stat-label">Messages Sent</div>
         <div class="stat-value">{{ messages_sent }}</div>
     </div>
@@ -19,5 +31,71 @@
         <div class="stat-label">Connection Requests Accepted</div>
         <div class="stat-value">{{ connect_requests_accepted }}</div>
     </div>
+</div>
+
+<h1 style="margin-top: 2rem;">Metrics by Profile</h1>
+<div class="table-wrap">
+<table>
+    <thead>
+    <tr>
+        <th>Profile</th>
+        <th>Status</th>
+        <th>Leads Messaged</th>
+        <th>Leads Replied</th>
+        <th>Messages Sent</th>
+        <th>Replies Received</th>
+        <th>Connect Requests Sent</th>
+        <th>Connect Requests Accepted</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for p in profiles %}
+    <tr>
+        <td>{{ p.linkedin_username }}</td>
+        <td>{{ "Active" if p.active else "Inactive" }}</td>
+        <td>{{ p.leads_messaged }}</td>
+        <td>{{ p.leads_replied }}</td>
+        <td>{{ p.messages_sent }}</td>
+        <td>{{ p.replies_received }}</td>
+        <td>{{ p.connect_requests_sent }}</td>
+        <td>{{ p.connect_requests_accepted }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty">No LinkedIn profiles found.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+
+<h1 style="margin-top: 2rem;">Daily Metrics (last {{ daily_window_days }} days, UTC)</h1>
+<div class="table-wrap">
+<table>
+    <thead>
+    <tr>
+        <th>Day</th>
+        <th>Profiles Scanned</th>
+        <th>Leads Messaged</th>
+        <th>Leads Replied</th>
+        <th>Messages Sent</th>
+        <th>Replies Received</th>
+        <th>Connect Requests Sent</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for d in daily %}
+    <tr>
+        <td>{{ d.day }}</td>
+        <td>{{ d.profiles_scanned }}</td>
+        <td>{{ d.leads_messaged }}</td>
+        <td>{{ d.leads_replied }}</td>
+        <td>{{ d.messages_sent }}</td>
+        <td>{{ d.replies_received }}</td>
+        <td>{{ d.connect_requests_sent }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="empty">No activity yet.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
 </div>
 {% endblock %}
