@@ -6,3 +6,8 @@ pytest-django
 pytest-mock
 pytest-cov
 factory-boy
+
+# Notebook analysis (notebooks/)
+jupyter
+ipykernel
+matplotlib
