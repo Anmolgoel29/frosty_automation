@@ -56,7 +56,7 @@ def ensure_coarse_fields(session, lead) -> bool:
     stage, which is precisely the cost the cheap stage exists to avoid.
 
     Rows discovered before those columns existed, and url-only seeds
-    (setup/seeds.py, setup/freemium.py), are both in that state.
+    (setup/seeds.py), are both in that state.
     ``coarse_scraped_at`` marks the rows whose coarse fields came from a
     real scrape; anything older gets exactly one repair scrape here.
 
@@ -94,7 +94,7 @@ def ensure_coarse_fields(session, lead) -> bool:
 
 
 def create_enriched_lead(session, url: str, profile: Dict[str, Any]) -> Optional[int]:
-    """Create Lead with full profile data and embedding.
+    """Create Lead with full profile data.
 
     Returns lead PK or None if exists.
     Does NOT create Deal — that comes at qualification.
@@ -131,8 +131,6 @@ def create_enriched_lead(session, url: str, profile: Dict[str, Any]) -> Optional
         # arbiter; losing the race just means someone else created the lead.
         logger.debug("Lead %s created concurrently — skipping", public_id)
         return None
-
-    lead.embed_from_profile(profile)
 
     logger.debug("Created enriched lead for %s (pk=%d)", public_id, lead.pk)
     return lead.pk

@@ -15,8 +15,6 @@ PROMPTS_DIR = Path(__file__).parent / "templates" / "prompts"
 
 DIAGNOSTICS_DIR = Path("/tmp/openoutreach-diagnostics")
 
-FASTEMBED_CACHE_DIR = ROOT_DIR / ".cache" / "fastembed"
-
 FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
 FIXTURE_PROFILES_DIR = FIXTURE_DIR / "profiles"
 FIXTURE_PAGES_DIR = FIXTURE_DIR / "pages"
@@ -78,7 +76,6 @@ CAMPAIGN_CONFIG = {
     "dossier_posts_per_source": 3,
     "dossier_min_delay_seconds": 2,
     "dossier_max_delay_seconds": 4,
-    "embedding_model": "BAAI/bge-small-en-v1.5",
     "connect_delay_seconds": 10,
     "connect_no_candidate_delay_seconds": 300,
     "enrich_min_delay_seconds": 6,

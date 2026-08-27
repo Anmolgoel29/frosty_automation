@@ -1,6 +1,5 @@
 import logging
 
-import numpy as np
 from django.db import IntegrityError, models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -16,6 +15,8 @@ class Lead(models.Model):
     linkedin_url = models.URLField(max_length=200, unique=True)
     public_identifier = models.CharField(max_length=200, unique=True)
     urn = models.CharField(max_length=200, null=True, blank=True, unique=True, db_index=True)
+    # No longer written by the live pipeline (used to feed the retired GP
+    # qualifier) — kept on existing rows rather than dropped via migration.
     embedding = models.BinaryField(null=True, blank=True)
     # Coarse, campaign-agnostic facts captured once at discovery (see
     # db/leads.py:create_enriched_lead) from the profile dict already in
@@ -52,7 +53,7 @@ class Lead(models.Model):
 
     # ------------------------------------------------------------------
     # Lazy accessors — re-scrape live on demand, persist only the
-    # derived caches we still keep (urn, embedding).
+    # derived cache we still keep (urn).
     # ------------------------------------------------------------------
 
     def get_profile(self, session) -> dict | None:
@@ -101,28 +102,6 @@ class Lead(models.Model):
             return self.urn
         raise ValueError(f"Lead {self.pk}: could not resolve URN after re-fetch")
 
-    def get_embedding(self, session) -> np.ndarray | None:
-        """384-dim embedding. Lazy: scrapes + embeds on first access."""
-        if self.embedding is None:
-            profile = self.get_profile(session)
-            if profile:
-                self.embed_from_profile(profile)
-        return self.embedding_array
-
-    def embed_from_profile(self, profile: dict) -> None:
-        """Compute and persist the 384-dim embedding from an in-hand profile.
-
-        Used by callers that already have a freshly parsed profile dict,
-        so they can skip the scrape that ``get_embedding`` would trigger.
-        """
-        from linkedin.ml.embeddings import embed_text
-        from linkedin.ml.profile_text import build_profile_text
-
-        text = build_profile_text({"profile": profile})
-        emb = embed_text(text)
-        self.embedding = emb.tobytes()
-        self.save(update_fields=["embedding"])
-
     def to_profile_dict(self) -> dict:
         """Standard profile dict shape used by qualifiers and pools.
 
@@ -136,14 +115,3 @@ class Lead(models.Model):
             "url": self.linkedin_url or "",
             "meta": {},
         }
-
-    @property
-    def embedding_array(self) -> np.ndarray | None:
-        """384-dim float32 numpy array from stored bytes, or None."""
-        if self.embedding is None:
-            return None
-        return np.frombuffer(bytes(self.embedding), dtype=np.float32).copy()
-
-    @embedding_array.setter
-    def embedding_array(self, arr: np.ndarray):
-        self.embedding = np.asarray(arr, dtype=np.float32).tobytes()

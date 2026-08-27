@@ -7,7 +7,6 @@ reconciles every 60s forever and re-ranks the pool on every connect task, so
 a per-row query reintroduced here shows up as a continuously growing DB load
 in production — the exact regression these numbers were chosen to catch.
 """
-import numpy as np
 import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
@@ -19,13 +18,12 @@ from tests.conftest import sessions_map
 
 
 def _seed_qualified(session, n):
-    """Add n more QUALIFIED deals whose leads are already embedded."""
-    emb = np.ones(384, dtype=np.float32).tobytes()
+    """Add n more QUALIFIED deals."""
     start = Lead.objects.count()
     for i in range(start, start + n):
         lead = Lead.objects.create(
             linkedin_url=f"https://www.linkedin.com/in/q{i}/",
-            public_identifier=f"q{i}", embedding=emb,
+            public_identifier=f"q{i}",
         )
         Deal.objects.create(lead=lead, campaign=session.campaign,
                             state=ProfileState.QUALIFIED)

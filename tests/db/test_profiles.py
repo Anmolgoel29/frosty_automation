@@ -99,16 +99,6 @@ class TestCreateEnrichedLead:
         assert lead.public_identifier == "alice"
         assert lead.urn == "urn:li:fsd_profile:ABC123"
 
-    def test_persists_embedding(self, fake_session):
-        from crm.models import Lead
-        create_enriched_lead(
-            fake_session,
-            "https://www.linkedin.com/in/alice/",
-            SAMPLE_PROFILE,
-        )
-        lead = Lead.objects.get(linkedin_url="https://www.linkedin.com/in/alice/")
-        assert lead.embedding is not None
-
     def test_returns_none_for_duplicate(self, fake_session):
         create_enriched_lead(
             fake_session,

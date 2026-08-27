@@ -5,34 +5,13 @@ LLM qualify/reject + fit-score call. See pipeline/qualify.py for orchestration.
 from __future__ import annotations
 
 import logging
-from typing import Protocol, runtime_checkable
 
 import jinja2
-import numpy as np
 from pydantic import BaseModel, Field
-from scipy.stats import norm
 
 from linkedin.conf import PROMPTS_DIR
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Qualifier protocol — implemented by KitQualifier (freemium campaigns)
-# ---------------------------------------------------------------------------
-
-@runtime_checkable
-class Qualifier(Protocol):
-    """Common interface for pre-trained-model qualifiers.
-
-    ``rank_profiles`` returns profiles sorted by score (descending).
-    Returns ``[]`` on cold start or when ranking is impossible.
-
-    ``explain`` returns a human-readable scoring summary for a single profile.
-    """
-
-    def rank_profiles(self, profiles: list, session) -> list: ...
-    def explain(self, profile: dict, session) -> str: ...
 
 
 # ---------------------------------------------------------------------------
@@ -132,103 +111,3 @@ def qualify_with_llm(
     decision = run_agent_sync(agent.run(prompt)).output
 
     return decision, model.model_id
-
-
-# ---------------------------------------------------------------------------
-# Shared GP numerics — used only by KitQualifier (pre-trained freemium kits)
-# ---------------------------------------------------------------------------
-
-def _prob_above_half(mean, std):
-    """P(f > 0.5) from a GP posterior."""
-    return norm.sf(0.5, loc=mean, scale=std)
-
-
-def _gpr_predict(pipe, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """Transform through all steps except GPR, then predict with return_std."""
-    from sklearn.pipeline import Pipeline
-
-    X = np.asarray(X, dtype=np.float64)
-    if X.ndim == 1:
-        X = X.reshape(1, -1)
-    X_transformed = Pipeline(pipe.steps[:-1]).transform(X)
-    return pipe.named_steps['gpr'].predict(X_transformed, return_std=True)
-
-
-def _load_profile_embeddings(profiles: list, session, *, skip_missing: bool = False):
-    """Load embeddings for a list of profile dicts.
-
-    Returns list of (profile, embedding) pairs. One bulk read for the whole
-    batch; only leads with no stored embedding fall back to the lazy
-    per-lead path (which scrapes).
-    """
-    from crm.models import Lead
-
-    lead_ids = [p.get("lead_id") for p in profiles if p.get("lead_id") is not None]
-    stored = dict(
-        Lead.objects.filter(pk__in=lead_ids, embedding__isnull=False)
-        .values_list("pk", "embedding")
-    )
-
-    result = []
-    for p in profiles:
-        raw = stored.get(p.get("lead_id"))
-        if raw is not None:
-            result.append((p, np.frombuffer(bytes(raw), dtype=np.float32).copy()))
-            continue
-
-        lead = Lead.objects.filter(pk=p.get("lead_id")).first()
-        emb = lead.get_embedding(session) if lead else None
-        if emb is None:
-            if skip_missing:
-                continue
-            pid = p.get("public_identifier", "?")
-            raise RuntimeError(f"No embedding found for profile {pid}")
-        result.append((p, emb))
-    return result
-
-
-def _rank_by_score(profiles: list, pipeline, session, *, skip_missing: bool = False) -> list:
-    """Rank profiles by raw pipeline.predict() score (descending)."""
-    scored = _load_profile_embeddings(profiles, session, skip_missing=skip_missing)
-    if not scored:
-        return []
-
-    X = np.array([emb for _, emb in scored], dtype=np.float64)
-    scores = pipeline.predict(X)
-
-    ranked = sorted(zip(scores, [p for p, _ in scored]), key=lambda t: t[0], reverse=True)
-    return [p for _, p in ranked]
-
-
-# ---------------------------------------------------------------------------
-# KitQualifier  (pre-trained kit model for freemium campaigns)
-# ---------------------------------------------------------------------------
-
-class KitQualifier:
-    """Qualifier for freemium campaigns backed by a pre-trained GPR kit model.
-
-    Wraps a Pipeline(StandardScaler, GPR) loaded from a campaign kit.
-    Ranks by raw GP mean and exposes posterior stats for explanation.
-    """
-
-    def __init__(self, kit_model):
-        self._model = kit_model
-
-    def rank_profiles(self, profiles: list, session) -> list:
-        """Rank profiles by raw model score (descending), skipping missing embeddings."""
-        if not profiles:
-            return []
-        return _rank_by_score(profiles, self._model, session, skip_missing=True)
-
-    def explain(self, profile: dict, session) -> str:
-        """Human-readable compact scoring explanation."""
-        from crm.models import Lead
-
-        lead = Lead.objects.filter(pk=profile.get("lead_id")).first()
-        emb = lead.get_embedding(session) if lead else None
-        if emb is None:
-            return "No embedding found for profile"
-        mean, std = _gpr_predict(self._model, emb)
-        gp_mean = float(mean[0])
-        p_above = float(_prob_above_half(mean, std)[0])
-        return f"mean={gp_mean:.3f}, P(f>0.5)={p_above:.3f}"

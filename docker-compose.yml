@@ -9,8 +9,8 @@
 #   Browser view — native VNC   : vnc://localhost:5900           (no password)
 #
 # Structured data (leads, deals, campaigns, model blobs) lives in Postgres, in the
-# named `openoutreach_pgdata` volume. Cookies, config.json, and the fastembed cache
-# persist in the named `openoutreach_data` volume mounted at /app/data.
+# named `openoutreach_pgdata` volume. Cookies and config.json persist in the
+# named `openoutreach_data` volume mounted at /app/data.
 #
 # For live-code development instead, use local.yml (bind-mounts the repo).
 #

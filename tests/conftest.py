@@ -1,20 +1,7 @@
 # tests/conftest.py
-from unittest.mock import patch
-
-import numpy as np
 import pytest
 
 from tests.factories import UserFactory
-
-
-@pytest.fixture(autouse=True)
-def _mock_embeddings(request):
-    """Stub fastembed so tests don't need the ONNX model."""
-    if "no_embed_mock" in request.keywords:
-        yield
-    else:
-        with patch("linkedin.ml.embeddings.embed_text", return_value=np.ones(384)):
-            yield
 
 
 class FakeAccountSession:

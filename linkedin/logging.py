@@ -49,7 +49,7 @@ class ColoredFormatter(logging.Formatter):
 
 SILENCED_LOGGERS = (
     "urllib3", "httpx", "pydantic_ai", "openai", "playwright",
-    "httpcore", "fastembed", "huggingface_hub", "filelock", "asyncio",
+    "httpcore", "asyncio",
 )
 
 
