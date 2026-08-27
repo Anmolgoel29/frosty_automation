@@ -12,7 +12,14 @@ logger = logging.getLogger(__name__)
 
 SELECTORS = {
     "weekly_limit": 'div[class*="ip-fuse-limit-alert__warning"]',
+    # The SDUI key is first because it is the only variant that doesn't depend
+    # on the account's UI language: it reads
+    # ConnectButtonstate:invitation:urn:li:member:<id>_connect, so the state
+    # ("_connect" vs "_pending") is structural rather than something we infer
+    # from English button text. Callers scope this to the top card — the
+    # "More profiles for you" rail carries other members' _connect buttons.
     "invite_to_connect": (
+        '[componentkey^="ConnectButton"][componentkey$="_connect"]:visible, '
         '[aria-label*="Invite"][aria-label*="to connect"]:visible, '
         'a:has(span:text-is("Connect")):visible, '
         'button:has(span:text-is("Connect")):visible'

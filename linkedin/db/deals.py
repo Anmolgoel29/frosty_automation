@@ -186,11 +186,16 @@ def get_profile_dict_for_public_id(session, public_id: str) -> dict | None:
 
 
 @transaction.atomic
-def create_disqualified_deal(session, public_id: str, reason: str = ""):
+def create_disqualified_deal(
+        session, public_id: str, reason: str = "", qualification_stage: str | None = None,
+):
     """Create a FAILED Deal with 'Disqualified' closing reason for an LLM-rejected lead.
 
     LLM qualification rejections are tracked as FAILED Deals (campaign-scoped),
     NOT as Lead.disqualified (which is for permanent account-level exclusion).
+
+    ``qualification_stage`` records which cascade stage rejected the lead
+    ("cheap" or "expensive") — see Deal.qualification_stage.
     """
     from crm.models import Outcome
 
@@ -208,6 +213,7 @@ def create_disqualified_deal(session, public_id: str, reason: str = ""):
         session=session,
         outcome=Outcome.WRONG_FIT,
         reason=reason,
+        qualification_stage=qualification_stage,
     )
 
     suffix = f" ({reason})" if reason else ""
@@ -237,7 +243,7 @@ def create_freemium_deal(session, public_id: str):
 
 def _create_deal(
     *, lead, state, session,
-    outcome="", reason="",
+    outcome="", reason="", qualification_stage=None,
 ):
     """Shared Deal creation with common defaults."""
     from crm.models import Deal
@@ -248,4 +254,5 @@ def _create_deal(
         state=state,
         outcome=outcome,
         reason=reason,
+        qualification_stage=qualification_stage,
     )

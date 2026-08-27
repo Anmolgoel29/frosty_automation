@@ -136,6 +136,12 @@ def handle_follow_up(task, session):
             logger.warning("follow_up for %s: send failed — moving to QUALIFIED for re-connection", public_id)
             return
         account.record_action(ActionLog.ActionType.FOLLOW_UP, session.campaign)
+        # send_raw_message only drives the browser/API — it never writes a
+        # ChatMessage row itself. Without this, the message we just sent is
+        # invisible (dashboard counts, chat_summary, _unanswered_count /
+        # _too_soon_to_nudge) until the *next* scheduled follow_up for this
+        # lead happens to sync, which can be hours to days away.
+        sync_conversation(session, public_id)
         enqueue_follow_up(
             campaign_id, public_id, account, delay_seconds=decision.follow_up_hours * 3600,
         )

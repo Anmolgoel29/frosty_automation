@@ -131,13 +131,15 @@ def _run_qualification_locked(session) -> str | None:
         # Skips not just the expensive LLM call but the whole dossier scrape
         # behind it — several LinkedIn reads per lead (see ml/dossier.py).
         logger.debug("%s cheap-disqualified — skipping dossier + expensive stage", public_id)
-        create_disqualified_deal(session, public_id, reason=decision.reason)
+        create_disqualified_deal(session, public_id, reason=decision.reason, qualification_stage="cheap")
         return public_id
 
     dossier_text = build_dossier_text(session, candidate)
     if not dossier_text:
         logger.warning("No profile reachable for lead %d — disqualifying", candidate.pk)
-        create_disqualified_deal(session, public_id, reason="profile not reachable")
+        create_disqualified_deal(
+            session, public_id, reason="profile not reachable", qualification_stage="expensive",
+        )
         return public_id
 
     with tracing.agent_run("qualify_with_llm", session_id=session_id) as span:
@@ -184,8 +186,8 @@ def _save_qualification_result(session, public_id: str, qualified: bool, fit_sco
             promote_lead_to_deal(session, public_id, reason=reason, fit_score=fit_score)
         except ValueError as e:
             logger.warning("Cannot promote %s: %s — disqualifying", public_id, e)
-            create_disqualified_deal(session, public_id, reason=str(e))
+            create_disqualified_deal(session, public_id, reason=str(e), qualification_stage="expensive")
     else:
-        create_disqualified_deal(session, public_id, reason=reason)
+        create_disqualified_deal(session, public_id, reason=reason, qualification_stage="expensive")
 
 

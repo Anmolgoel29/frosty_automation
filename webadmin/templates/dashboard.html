@@ -31,6 +31,14 @@
         <div class="stat-label">Connection Requests Accepted</div>
         <div class="stat-value">{{ connect_requests_accepted }}</div>
     </div>
+    <div class="stat-tile">
+        <div class="stat-label">Disqualified — Cheap Stage</div>
+        <div class="stat-value">{{ cheap_disqualified }}</div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-label">Reached Expensive Stage</div>
+        <div class="stat-value">{{ reached_expensive }}</div>
+    </div>
 </div>
 
 <h1 style="margin-top: 2rem;">Metrics by Profile</h1>
@@ -68,7 +76,44 @@
 </div>
 
 <h1 style="margin-top: 2rem;">Daily Metrics (last {{ daily_window_days }} days, UTC)</h1>
+<form method="get" style="margin-bottom: 0.75rem;">
+    <label for="profile_id">Show:</label>
+    <select id="profile_id" name="profile_id" onchange="this.form.submit()">
+        <option value="" {{ "selected" if not selected_profile_id else "" }}>All profiles (accumulated)</option>
+        {% for p in profiles %}
+        <option value="{{ p.id }}" {{ "selected" if selected_profile_id == p.id else "" }}>{{ p.linkedin_username }}</option>
+        {% endfor %}
+    </select>
+</form>
 <div class="table-wrap">
+{% if selected_profile_id %}
+<table>
+    <thead>
+    <tr>
+        <th>Day</th>
+        <th>Leads Messaged</th>
+        <th>Leads Replied</th>
+        <th>Messages Sent</th>
+        <th>Replies Received</th>
+        <th>Connect Requests Sent</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for d in daily %}
+    <tr>
+        <td>{{ d.day }}</td>
+        <td>{{ d.leads_messaged }}</td>
+        <td>{{ d.leads_replied }}</td>
+        <td>{{ d.messages_sent }}</td>
+        <td>{{ d.replies_received }}</td>
+        <td>{{ d.connect_requests_sent }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" class="empty">No activity yet.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% else %}
 <table>
     <thead>
     <tr>
@@ -79,6 +124,8 @@
         <th>Messages Sent</th>
         <th>Replies Received</th>
         <th>Connect Requests Sent</th>
+        <th>Disqualified (Cheap)</th>
+        <th>Reached Expensive Stage</th>
     </tr>
     </thead>
     <tbody>
@@ -91,11 +138,14 @@
         <td>{{ d.messages_sent }}</td>
         <td>{{ d.replies_received }}</td>
         <td>{{ d.connect_requests_sent }}</td>
+        <td>{{ d.cheap_disqualified }}</td>
+        <td>{{ d.reached_expensive }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="7" class="empty">No activity yet.</td></tr>
+    <tr><td colspan="9" class="empty">No activity yet.</td></tr>
     {% endfor %}
     </tbody>
 </table>
+{% endif %}
 </div>
 {% endblock %}

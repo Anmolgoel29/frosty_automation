@@ -58,6 +58,13 @@ REST_DAYS = (5, 6)      # 0=Mon … 6=Sun; default Sat+Sun off
 # ----------------------------------------------------------------------
 CAMPAIGN_CONFIG = {
     "check_pending_recheck_after_hours": 24,
+    # Ceiling for the check_pending backoff doubling (24 → 48 → 96 → …).
+    # Uncapped, a run of inconclusive checks compounds past any useful
+    # horizon — a systematic scrape break pushed real deals to 384h before
+    # this existed, so they stayed asleep for over two weeks after the break
+    # itself was fixed. LinkedIn invitations expire around the 2-3 week mark
+    # anyway, so there is nothing to learn from polling slower than this.
+    "check_pending_max_backoff_hours": 336,  # 14 days
     "min_action_interval": 120,
     # QUALIFIED -> READY_TO_CONNECT promotion gate and connect-order ranking
     # (pipeline/ready_pool.py) — the expensive qualification stage's own

@@ -224,6 +224,7 @@ class Deal(Base):
     outcome: Mapped[str] = mapped_column(String(20), default="")
     reason: Mapped[str] = mapped_column(Text, default="")
     fit_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    qualification_stage: Mapped[str | None] = mapped_column(String(20), nullable=True)
     connect_attempts: Mapped[int] = mapped_column(Integer, default=0)
     backoff_hours: Mapped[int] = mapped_column(Integer, default=0)
     profile_summary: Mapped[dict | None] = mapped_column(JSON, nullable=True)

@@ -58,6 +58,16 @@ class Deal(models.Model):
     # and connect-order ranking (db/deals.py:get_ready_to_connect_profiles) —
     # the replacement for the old GP posterior on both counts.
     fit_score = models.IntegerField(null=True, blank=True, default=None)
+    # Which qualification-cascade stage produced this Deal (pipeline/qualify.py):
+    # "cheap" = disqualified by the headline/about prefilter, dossier never scraped.
+    # "expensive" = reached the full-dossier LLM call (qualified or rejected there,
+    # including a dossier scrape that came back empty). Null for deals that never
+    # went through the cascade (freemium kit deals, manually seeded/promoted).
+    qualification_stage = models.CharField(
+        max_length=20,
+        choices=[("cheap", "Cheap"), ("expensive", "Expensive")],
+        null=True, blank=True, default=None,
+    )
     connect_attempts = models.IntegerField(default=0)
     backoff_hours = models.IntegerField(default=0)
     profile_summary = models.JSONField(null=True, blank=True, default=None)

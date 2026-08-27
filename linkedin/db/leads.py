@@ -156,6 +156,9 @@ def promote_lead_to_deal(session, public_id: str, reason: str = "", fit_score: i
         state=ProfileState.QUALIFIED,
         reason=reason,
         fit_score=fit_score,
+        # Only ever called from the expensive stage of the qualification
+        # cascade (pipeline/qualify.py) — there's no other path to QUALIFIED.
+        qualification_stage="expensive",
     )
 
     from termcolor import colored

@@ -15,7 +15,8 @@ from linkedin.db.leads import disqualify_lead
 from linkedin.models import ActionLog
 from linkedin.enums import ProfileState
 from linkedin.exceptions import (
-    ConnectClickFailed, ProfileInaccessibleError, ReachedConnectionLimit, SkipProfile,
+    ConnectClickFailed, PageStructureError, ProfileInaccessibleError,
+    ReachedConnectionLimit, SkipProfile,
 )
 
 logger = logging.getLogger(__name__)
@@ -142,6 +143,15 @@ def handle_connect(task, session):
         logger.warning("Profile inaccessible — marking FAILED: %s", e)
         set_profile_state(session, public_id, ProfileState.FAILED.value,
                           reason=f"Profile inaccessible: {e}")
+    except PageStructureError as e:
+        # The page didn't render in a shape we know. That is a browser/session
+        # problem, not a verdict on the lead — so it must not touch the
+        # connect_attempts counter, which gives up by *disqualifying the Lead
+        # campaign-wide*. Leave the deal READY_TO_CONNECT and let the connect
+        # loop come back to it; if the cause is permanent for this account we
+        # re-pick the same lead at the normal connect pace, which self-heals
+        # the moment profile pages render again.
+        logger.warning("Could not read %s (%s) — leaving it in the ready pool", public_id, e)
     except SkipProfile as e:
         logger.warning("Skipping %s: %s", public_id, e)
         set_profile_state(session, public_id, ProfileState.FAILED.value)

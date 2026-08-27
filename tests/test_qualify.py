@@ -49,7 +49,9 @@ class TestRunQualificationCascade:
         mock_cheap.assert_called_once()
         mock_expensive.assert_not_called()
         mock_dossier.assert_not_called()
-        mock_disqualify.assert_called_once_with(session, "alice", reason="wrong seniority")
+        mock_disqualify.assert_called_once_with(
+            session, "alice", reason="wrong seniority", qualification_stage="cheap",
+        )
 
     def test_cheap_pass_reaches_expensive_stage(self, db):
         session = MagicMock()
@@ -82,7 +84,9 @@ class TestRunQualificationCascade:
             patch("linkedin.db.deals.create_disqualified_deal") as mock_disqualify,
         ):
             run_qualification(session)
-            mock_disqualify.assert_called_once_with(session, "alice", reason="Bad fit")
+            mock_disqualify.assert_called_once_with(
+                session, "alice", reason="Bad fit", qualification_stage="expensive",
+            )
 
     def test_unreachable_profile_disqualifies_without_expensive_call(self, db):
         session = MagicMock()
@@ -98,7 +102,9 @@ class TestRunQualificationCascade:
             run_qualification(session)
 
         mock_expensive.assert_not_called()
-        mock_disqualify.assert_called_once_with(session, "alice", reason="profile not reachable")
+        mock_disqualify.assert_called_once_with(
+            session, "alice", reason="profile not reachable", qualification_stage="expensive",
+        )
 
     def test_disqualify_on_promote_failure(self, db):
         session = MagicMock()

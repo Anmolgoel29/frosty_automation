@@ -14,16 +14,17 @@ from termcolor import colored
 
 from linkedin.db.deals import get_profile_dict_for_public_id, set_profile_state
 from linkedin.enums import ProfileState
-from linkedin.exceptions import SkipProfile
+from linkedin.exceptions import PageStructureError, SkipProfile
 
 logger = logging.getLogger(__name__)
 
 
 def _bump_backoff(session, public_id: str, current_hours: float) -> float:
-    """Double the check_pending backoff on the Deal; return the new value."""
+    """Double the check_pending backoff on the Deal, capped; return the new value."""
     from crm.models import Deal
+    from linkedin.conf import CAMPAIGN_CONFIG
 
-    new_backoff = current_hours * 2
+    new_backoff = min(current_hours * 2, CAMPAIGN_CONFIG["check_pending_max_backoff_hours"])
     deal = Deal.objects.filter(
         lead__public_identifier=public_id,
         campaign=session.campaign,
@@ -55,6 +56,20 @@ def handle_check_pending(task, session):
 
     try:
         new_state = get_connection_status(session, profile)
+    except PageStructureError as e:
+        # We couldn't read the page — that says nothing about the invite,
+        # which is still sitting on LinkedIn exactly as it was. Treat it like
+        # any other inconclusive check: stay PENDING and back off, so a
+        # throttled session or a markup variant costs one delayed re-check
+        # instead of a dead lead. FAILED is terminal and is where LLM
+        # rejections live; a scrape miss must never land a deal there.
+        new_backoff = _bump_backoff(session, public_id, backoff_hours)
+        logger.warning(
+            "Could not read %s (%s) — staying PENDING, backoff %.1fh → %.1fh",
+            public_id, e, backoff_hours, new_backoff,
+        )
+        set_profile_state(session, public_id, ProfileState.PENDING.value)
+        return
     except SkipProfile as e:
         logger.warning("Skipping %s: %s", public_id, e)
         set_profile_state(session, public_id, ProfileState.FAILED.value)
