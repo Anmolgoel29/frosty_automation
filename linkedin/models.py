@@ -85,9 +85,53 @@ class Campaign(models.Model):
     is_freemium = models.BooleanField(default=False)
     action_fraction = models.FloatField(default=0.2)
     seed_public_ids = models.JSONField(default=list, blank=True)
+    # Geographic targeting for People search, e.g.
+    #   [{"name": "India", "urn": "102713980"},
+    #    {"name": "United States", "urn": "103644278"}]
+    # The names are for humans (admin list, log lines); only the urns reach
+    # LinkedIn. Empty list = no geo filter, i.e. search worldwide.
+    #
+    # Supplied by hand rather than generated: these are opaque numeric ids an
+    # LLM would confidently invent. Grab one by running the search in
+    # LinkedIn's own UI with a location filter applied and copying `geoUrn`
+    # out of the address bar.
+    search_locations = models.JSONField(default=list, blank=True)
     # Round-robin pointer into active_profiles(), advanced by
     # linkedin/pipeline/allocation.py as ready leads are dealt out.
     assignment_cursor = models.PositiveIntegerField(default=0)
+
+    def geo_urns(self) -> list[str]:
+        """The bare numeric geo ids from ``search_locations``, for the search URL.
+
+        Deliberately liberal about what it accepts, because these are pasted by
+        hand from a LinkedIn URL: an entry may be a ``{"name", "urn"}`` pair or
+        a bare id, and the id may arrive as ``"102713980"`` or as a full
+        ``"urn:li:fsd_geo:102713980"``. LinkedIn's ``geoUrn`` facet wants only
+        the trailing number, so that is what comes back. Malformed entries are
+        skipped rather than raising — a typo in one row shouldn't stop the
+        campaign searching on the rest.
+        """
+        urns = []
+        for entry in self.search_locations or []:
+            raw = entry.get("urn") if isinstance(entry, dict) else entry
+            if not raw:
+                continue
+            geo_id = str(raw).strip().rsplit(":", 1)[-1]
+            if geo_id.isdigit():
+                urns.append(geo_id)
+            else:
+                logger.warning(
+                    "Campaign %s: ignoring unparsable search location %r", self.name, entry,
+                )
+        return urns
+
+    def geo_labels(self) -> str:
+        """Human-readable location names, for log lines."""
+        names = [
+            (e.get("name") or e.get("urn")) if isinstance(e, dict) else e
+            for e in self.search_locations or []
+        ]
+        return ", ".join(str(n) for n in names if n)
 
     def active_profiles(self) -> list["LinkedInProfile"]:
         """Active LinkedIn accounts running this campaign, in a stable order.

@@ -165,7 +165,7 @@ register(ModelAdmin(
     model=Campaign,
     slug="campaign",
     label="Campaign",
-    list_display=["name", "booking_link", "is_freemium", "action_fraction"],
+    list_display=["name", "booking_link", "is_freemium", "action_fraction", "search_locations"],
     m2m_fields=["users"],
 ))
 

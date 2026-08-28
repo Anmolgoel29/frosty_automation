@@ -74,6 +74,10 @@ def run_search(session) -> str | None:
     if kw is None:
         return None
 
-    logger.info(colored("\u25b6 search", "magenta", attrs=["bold"]) + " keyword=%r", kw.keyword)
+    where = campaign.geo_labels()
+    logger.info(
+        colored("\u25b6 search", "magenta", attrs=["bold"]) + " keyword=%r location=%s",
+        kw.keyword, where or "worldwide",
+    )
     search_people(session, kw.keyword)
     return kw.keyword

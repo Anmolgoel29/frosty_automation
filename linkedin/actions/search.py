@@ -1,5 +1,6 @@
 # linkedin/actions/search.py
 
+import json
 import logging
 from typing import Dict, Any
 from urllib.parse import urlparse, parse_qs, urlencode
@@ -65,11 +66,24 @@ def visit_profile(session: "AccountSession", profile: Dict[str, Any]):
     discover_and_enrich(session, urls)
 
 
-def _initiate_search(session: "AccountSession", keyword: str):
-    """Navigate directly to LinkedIn People search results for *keyword*."""
+def _initiate_search(session: "AccountSession", keyword: str, geo_urns: list[str] | None = None):
+    """Navigate directly to LinkedIn People search results for *keyword*.
+
+    ``geo_urns`` narrows the search to those LinkedIn regions. It is passed in
+    rather than read off ``session.campaign`` because not every caller wants
+    it: prospecting should respect the campaign's geographic targeting, but
+    looking a *specific* person up by name must not — filtering that by region
+    just fails to find someone who happens to live elsewhere.
+    """
     page = session.page
-    params = urlencode({"keywords": keyword, "origin": "GLOBAL_SEARCH_HEADER"})
-    url = f"https://www.linkedin.com/search/results/people/?{params}"
+    params = {"keywords": keyword, "origin": "GLOBAL_SEARCH_HEADER"}
+    if geo_urns:
+        # LinkedIn's facet wants a JSON array of the bare numeric ids, and the
+        # real UI switches origin when any filter is on — GLOBAL_SEARCH_HEADER
+        # is what an unfiltered search bar sends.
+        params["geoUrn"] = json.dumps(geo_urns, separators=(",", ":"))
+        params["origin"] = "FACETED_SEARCH"
+    url = f"https://www.linkedin.com/search/results/people/?{urlencode(params)}"
 
     goto_page(
         session,
@@ -96,9 +110,11 @@ def _paginate_to_next_page(session: "AccountSession", page_num: int):
 
 
 def search_people(session: "AccountSession", keyword: str, page: int = 1):
-    """Search LinkedIn People by keyword and navigate to the given page."""
+    """Search LinkedIn People by keyword, narrowed to the campaign's regions."""
     session.ensure_browser()
-    _initiate_search(session, keyword)
+    # _paginate_to_next_page rebuilds the URL from the current one, so the geo
+    # facet carries through to page 2+ without being re-applied here.
+    _initiate_search(session, keyword, geo_urns=session.campaign.geo_urns())
     if page > 1:
         _paginate_to_next_page(session, page)
 
