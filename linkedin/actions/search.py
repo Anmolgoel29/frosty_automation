@@ -66,14 +66,17 @@ def visit_profile(session: "AccountSession", profile: Dict[str, Any]):
     discover_and_enrich(session, urls)
 
 
-def _initiate_search(session: "AccountSession", keyword: str, geo_urns: list[str] | None = None):
+def _initiate_search(session: "AccountSession", keyword: str, geo_urns: list[str]):
     """Navigate directly to LinkedIn People search results for *keyword*.
 
-    ``geo_urns`` narrows the search to those LinkedIn regions. It is passed in
-    rather than read off ``session.campaign`` because not every caller wants
-    it: prospecting should respect the campaign's geographic targeting, but
-    looking a *specific* person up by name must not — filtering that by region
-    just fails to find someone who happens to live elsewhere.
+    ``geo_urns`` narrows the search to those LinkedIn regions, and has **no
+    default on purpose**. Every search this project runs must be geo-targeted
+    whenever the campaign says so, and a defaulted parameter is exactly how
+    that stops being true — a new call site forgets it and silently searches
+    the whole world, which looks like a working search in the logs. Making it
+    required turns that into an immediate TypeError at the call site. Pass
+    ``campaign.geo_urns()``; the empty list it returns for an unconfigured
+    campaign is the only way to legitimately search worldwide.
     """
     page = session.page
     params = {"keywords": keyword, "origin": "GLOBAL_SEARCH_HEADER"}
@@ -143,7 +146,7 @@ def _simulate_human_search(session: "AccountSession", profile: Dict[str, Any]) -
 
     logger.info(f"Human search → '{full_name}' (target: {public_identifier})")
 
-    _initiate_search(session, full_name)
+    _initiate_search(session, full_name, geo_urns=session.campaign.geo_urns())
 
     max_pages_to_scan = 1
 

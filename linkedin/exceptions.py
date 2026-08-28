@@ -35,6 +35,19 @@ class ProfileInaccessibleError(Exception):
     pass
 
 
+class InvalidSearchLocations(Exception):
+    """Campaign.search_geo_urns is configured but nothing usable parsed out of it.
+
+    A configuration error, and deliberately fatal rather than fail-soft: the
+    fallback for "no geo urns" is a worldwide search, so silently swallowing
+    this would run the exact unfiltered search the targeting was meant to
+    prevent, burning connect quota on the wrong continent. An empty
+    search_geo_urns is a legitimate choice and never raises — only a
+    non-empty one that yields no valid ids does.
+    """
+    pass
+
+
 class ReachedConnectionLimit(Exception):
     """ Weekly connection limit reached. """
     pass

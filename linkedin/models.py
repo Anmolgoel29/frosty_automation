@@ -85,35 +85,33 @@ class Campaign(models.Model):
     is_freemium = models.BooleanField(default=False)
     action_fraction = models.FloatField(default=0.2)
     seed_public_ids = models.JSONField(default=list, blank=True)
-    # Geographic targeting for People search, e.g.
-    #   [{"name": "India", "urn": "102713980"},
-    #    {"name": "United States", "urn": "103644278"}]
-    # The names are for humans (admin list, log lines); only the urns reach
-    # LinkedIn. Empty list = no geo filter, i.e. search worldwide.
+    # Geographic targeting for People search — a plain list of LinkedIn geo
+    # ids, e.g. ["102713980", "103644278"]. Empty list = no geo filter, i.e.
+    # search worldwide.
     #
     # Supplied by hand rather than generated: these are opaque numeric ids an
     # LLM would confidently invent. Grab one by running the search in
     # LinkedIn's own UI with a location filter applied and copying `geoUrn`
     # out of the address bar.
-    search_locations = models.JSONField(default=list, blank=True)
+    search_geo_urns = models.JSONField(default=list, blank=True)
     # Round-robin pointer into active_profiles(), advanced by
     # linkedin/pipeline/allocation.py as ready leads are dealt out.
     assignment_cursor = models.PositiveIntegerField(default=0)
 
     def geo_urns(self) -> list[str]:
-        """The bare numeric geo ids from ``search_locations``, for the search URL.
+        """The validated geo ids from ``search_geo_urns``, for the search URL.
 
-        Deliberately liberal about what it accepts, because these are pasted by
-        hand from a LinkedIn URL: an entry may be a ``{"name", "urn"}`` pair or
-        a bare id, and the id may arrive as ``"102713980"`` or as a full
-        ``"urn:li:fsd_geo:102713980"``. LinkedIn's ``geoUrn`` facet wants only
-        the trailing number, so that is what comes back. Malformed entries are
-        skipped rather than raising — a typo in one row shouldn't stop the
-        campaign searching on the rest.
+        Deliberately liberal about each entry's exact shape, because these are
+        pasted by hand from a LinkedIn URL: an id may arrive as ``102713980``,
+        ``"102713980"``, or the full ``"urn:li:fsd_geo:102713980"``. LinkedIn's
+        ``geoUrn`` facet wants only the trailing number, so that is what comes
+        back. A single malformed entry is skipped with a warning rather than
+        raising — a typo in one row shouldn't stop the campaign searching on
+        the rest.
         """
+        configured = self.search_geo_urns or []
         urns = []
-        for entry in self.search_locations or []:
-            raw = entry.get("urn") if isinstance(entry, dict) else entry
+        for raw in configured:
             if not raw:
                 continue
             geo_id = str(raw).strip().rsplit(":", 1)[-1]
@@ -121,17 +119,23 @@ class Campaign(models.Model):
                 urns.append(geo_id)
             else:
                 logger.warning(
-                    "Campaign %s: ignoring unparsable search location %r", self.name, entry,
+                    "Campaign %s: ignoring unparsable search_geo_urns entry %r", self.name, raw,
                 )
-        return urns
 
-    def geo_labels(self) -> str:
-        """Human-readable location names, for log lines."""
-        names = [
-            (e.get("name") or e.get("urn")) if isinstance(e, dict) else e
-            for e in self.search_locations or []
-        ]
-        return ", ".join(str(n) for n in names if n)
+        # Configured but nothing parsed: every entry was malformed. Falling
+        # back to [] here would mean a *worldwide* search — the campaign would
+        # quietly do the opposite of what its targeting says, and the only
+        # evidence would be warnings scrolling past. Fail loudly instead.
+        if configured and not urns:
+            from linkedin.exceptions import InvalidSearchLocations
+
+            raise InvalidSearchLocations(
+                f"Campaign {self.name!r}: search_geo_urns is set but no valid geo id "
+                f"could be read from {configured!r}. Expected a list of LinkedIn geo "
+                f'ids, e.g. ["102713980"] — fix it in the admin, or clear the field '
+                f"to search worldwide."
+            )
+        return urns
 
     def active_profiles(self) -> list["LinkedInProfile"]:
         """Active LinkedIn accounts running this campaign, in a stable order.

@@ -74,10 +74,10 @@ def run_search(session) -> str | None:
     if kw is None:
         return None
 
-    where = campaign.geo_labels()
+    geo_urns = campaign.geo_urns()
     logger.info(
-        colored("\u25b6 search", "magenta", attrs=["bold"]) + " keyword=%r location=%s",
-        kw.keyword, where or "worldwide",
+        colored("\u25b6 search", "magenta", attrs=["bold"]) + " keyword=%r geo=%s",
+        kw.keyword, ",".join(geo_urns) if geo_urns else "worldwide",
     )
     search_people(session, kw.keyword)
     return kw.keyword

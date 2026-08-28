@@ -89,8 +89,8 @@ class Campaign(Base):
     is_freemium: Mapped[bool] = mapped_column(Boolean, default=False)
     action_fraction: Mapped[float] = mapped_column(Float, default=0.2)
     seed_public_ids: Mapped[list] = mapped_column(JSON, default=list)
-    # [{"name": "India", "urn": "102713980"}, ...] — see linkedin/models.py
-    search_locations: Mapped[list] = mapped_column(JSON, default=list)
+    # ["102713980", ...] — see linkedin/models.py
+    search_geo_urns: Mapped[list] = mapped_column(JSON, default=list)
     assignment_cursor: Mapped[int] = mapped_column(Integer, default=0)
 
     users: Mapped[list[User]] = relationship(secondary=campaign_users)
