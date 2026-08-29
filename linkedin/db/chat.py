@@ -115,6 +115,28 @@ def _sync_from_api(session, public_identifier: str, lead, ct) -> list:
     return new_messages
 
 
+def tag_last_outgoing(public_identifier: str, authored_by: str) -> None:
+    """Stamp the most recent outgoing ChatMessage with who composed it.
+
+    Best-effort: if the row isn't there yet (the sync that should have
+    created it raced or was mocked out), this is a no-op rather than an
+    error — provenance is a nice-to-have for the admin UI, not something
+    worth crashing a task over.
+    """
+    from chat.models import ChatMessage
+
+    lead, ct = _get_lead_and_ct(public_identifier)
+    last_outgoing = (
+        ChatMessage.objects.filter(content_type=ct, object_id=lead.pk, is_outgoing=True)
+        .order_by("-creation_date")
+        .first()
+    )
+    if last_outgoing is None or last_outgoing.authored_by:
+        return
+    last_outgoing.authored_by = authored_by
+    last_outgoing.save(update_fields=["authored_by"])
+
+
 def _read_from_db(public_identifier: str) -> list[dict]:
     """Read all ChatMessages for a lead, sorted chronologically."""
     from chat.models import ChatMessage

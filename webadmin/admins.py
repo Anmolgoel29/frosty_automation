@@ -35,6 +35,8 @@ class TaskType(str, Enum):
     CONNECT = "connect"
     CHECK_PENDING = "check_pending"
     FOLLOW_UP = "follow_up"
+    CHECK_INBOX = "check_inbox"
+    MANUAL_SEND = "manual_send"
 
 
 class TaskStatus(str, Enum):
@@ -228,7 +230,7 @@ register(ModelAdmin(
     model=ChatMessage,
     slug="chatmessage",
     label="Chat Message",
-    list_display=["object_id", "owner", "creation_date", "is_outgoing"],
+    list_display=["object_id", "owner", "creation_date", "is_outgoing", "authored_by"],
     list_filter=["owner"],
     raw_id_fields=["owner", "answer_to", "topic"],
     date_hierarchy="creation_date",

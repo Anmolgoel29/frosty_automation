@@ -67,7 +67,7 @@ def handle_follow_up(task, session):
     from crm.models import Deal
     from linkedin.actions.message import send_raw_message
     from linkedin.agents.follow_up import run_follow_up_agent
-    from linkedin.db.chat import sync_conversation
+    from linkedin.db.chat import sync_conversation, tag_last_outgoing
     from linkedin.db.deals import set_profile_state
     from linkedin.db.summaries import materialize_profile_summary_if_missing
     from linkedin.enums import ProfileState
@@ -142,6 +142,7 @@ def handle_follow_up(task, session):
         # _too_soon_to_nudge) until the *next* scheduled follow_up for this
         # lead happens to sync, which can be hours to days away.
         sync_conversation(session, public_id)
+        tag_last_outgoing(public_id, "ai")
         enqueue_follow_up(
             campaign_id, public_id, account, delay_seconds=decision.follow_up_hours * 3600,
         )

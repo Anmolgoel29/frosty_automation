@@ -263,6 +263,7 @@ class ChatMessage(Base):
     creation_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     linkedin_urn: Mapped[str] = mapped_column(String(300), unique=True)
     is_outgoing: Mapped[bool] = mapped_column(Boolean, default=True)
+    authored_by: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     owner: Mapped[User | None] = relationship(foreign_keys=[owner_id])
 

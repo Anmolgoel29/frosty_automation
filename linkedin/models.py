@@ -323,12 +323,17 @@ class TaskQuerySet(models.QuerySet):
         never waits on a row another worker already took.
 
         Among due tasks, messaging comes first: ``follow_up`` (an actual
-        message to a connected lead) and ``check_pending`` (polling a pending
+        message to a connected lead), ``check_pending`` (polling a pending
         invite — the path that discovers an accepted connection and hands it
-        straight to follow_up) share top priority, ahead of ``connect`` (a
-        connection request, and the account's own search/scan loop when its
-        ready pool is empty). Ties within a priority band fall back to
-        ``scheduled_at`` so backlog within one type still runs oldest-first.
+        straight to follow_up), and ``manual_send`` (an admin-triggered
+        message from the webadmin chat view) share top priority. Next is
+        ``check_inbox`` (the cheap per-account inbox poll that discovers new
+        replies) — ahead of ``connect`` so a long connect/search phase can
+        never starve message discovery, but never preempting an actual send.
+        ``connect`` (a connection request, and the account's own search/scan
+        loop when its ready pool is empty) comes last. Ties within a priority
+        band fall back to ``scheduled_at`` so backlog within one type still
+        runs oldest-first.
         """
         from django.db import transaction
         from django.db.models import Case, When
@@ -345,8 +350,10 @@ class TaskQuerySet(models.QuerySet):
                     priority=Case(
                         When(task_type=Task.TaskType.FOLLOW_UP, then=0),
                         When(task_type=Task.TaskType.CHECK_PENDING, then=0),
-                        When(task_type=Task.TaskType.CONNECT, then=1),
-                        default=2,
+                        When(task_type=Task.TaskType.MANUAL_SEND, then=0),
+                        When(task_type=Task.TaskType.CHECK_INBOX, then=1),
+                        When(task_type=Task.TaskType.CONNECT, then=2),
+                        default=3,
                     ),
                 )
                 .order_by("priority", "scheduled_at")
@@ -379,6 +386,8 @@ class Task(models.Model):
         CONNECT = "connect"
         CHECK_PENDING = "check_pending"
         FOLLOW_UP = "follow_up"
+        CHECK_INBOX = "check_inbox"
+        MANUAL_SEND = "manual_send"
 
     class Status(models.TextChoices):
         PENDING = "pending"

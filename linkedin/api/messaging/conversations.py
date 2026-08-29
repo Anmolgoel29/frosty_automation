@@ -63,6 +63,7 @@ if __name__ == "__main__":
     parser = cli_parser("Fetch raw Voyager messaging data")
     parser.add_argument("--conversations", action="store_true", help="List recent conversations")
     parser.add_argument("--messages", default=None, metavar="CONVERSATION_URN", help="Fetch messages for a conversation URN")
+    parser.add_argument("--raw", action="store_true", help="With --conversations, dump the raw per-element JSON instead of names (confirms the last-activity field name in linkedin/actions/conversations.py:_LAST_ACTIVITY_FIELDS). With --messages, dump the full raw response instead of the first 10000 chars, so any pagination/syncToken metadata is visible — use this on a conversation with more history than shows up in the admin panel to find the field fetch_messages needs to page through it (see linkedin/db/chat.py:_sync_from_api).")
     args = parser.parse_args()
     session = cli_session(args)
     session.ensure_browser()
@@ -74,6 +75,9 @@ if __name__ == "__main__":
         raw = fetch_conversations(api, mailbox_urn)
         elements = raw.get("data", {}).get("messengerConversationsBySyncToken", {}).get("elements", [])
         logger.info("Got %d conversations:", len(elements))
+        if args.raw:
+            for conv in elements:
+                logger.info(json.dumps(conv, indent=2, default=str))
         for conv in elements:
             urn = conv.get("entityUrn", "")
             participants = []
@@ -89,7 +93,13 @@ if __name__ == "__main__":
 
     elif args.messages:
         raw = fetch_messages(api, args.messages)
-        logger.info(json.dumps(raw, indent=2, default=str)[:10000])
+        elements = raw.get("data", {}).get("messengerMessagesBySyncToken", {}).get("elements", [])
+        logger.info("Got %d message(s) in this call.", len(elements))
+        text = json.dumps(raw, indent=2, default=str)
+        if args.raw:
+            logger.info(text)
+        else:
+            logger.info(text[:10000])
 
     else:
         parser.print_help()

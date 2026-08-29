@@ -113,6 +113,53 @@ class TestQueryBudgets:
         candidate = fetch_next_qualification_candidate(fake_session)
         assert candidate.public_identifier == "p0"
 
+    def test_check_inbox_cost_is_flat_in_deal_count(self, fake_session):
+        """check_inbox is a per-account poll (one Voyager call); its DB cost
+        must not track how many CONNECTED deals the account owns."""
+        from unittest.mock import patch
+
+        from django.utils import timezone
+
+        from linkedin.tasks.check_inbox import handle_check_inbox
+
+        def _seed_connected(n, start):
+            for i in range(start, start + n):
+                lead = Lead.objects.create(
+                    linkedin_url=f"https://www.linkedin.com/in/c{i}/",
+                    public_identifier=f"c{i}",
+                    urn=f"urn:li:fsd_profile:C{i}",
+                )
+                Deal.objects.create(
+                    lead=lead, campaign=fake_session.campaign,
+                    state=ProfileState.CONNECTED, assigned_profile=fake_session.linkedin_profile,
+                )
+
+        def _make_task():
+            return Task.objects.create(
+                task_type=Task.TaskType.CHECK_INBOX,
+                linkedin_profile=fake_session.linkedin_profile,
+                status=Task.Status.RUNNING,
+                scheduled_at=timezone.now(),
+                started_at=timezone.now(),
+                payload={"campaign_id": fake_session.campaign.pk},
+            )
+
+        with patch("linkedin.api.client.PlaywrightLinkedinAPI"), \
+             patch("linkedin.api.messaging.fetch_conversations", return_value={"data": {}}):
+            _seed_connected(5, 0)
+            task = _make_task()
+            small = _query_count(lambda: handle_check_inbox(task, fake_session))
+            Task.objects.all().delete()
+
+            _seed_connected(45, 5)
+            task = _make_task()
+            large = _query_count(lambda: handle_check_inbox(task, fake_session))
+
+        assert small == large, (
+            f"check_inbox went from {small} to {large} queries when CONNECTED deals grew "
+            f"5 → 50 — a per-deal query crept back in"
+        )
+
     def test_state_transition_does_not_rewrite_summary_blobs(self, fake_session):
         """Deal carries two JSON fact lists; a state change must not resend them."""
         from linkedin.db.deals import set_profile_state

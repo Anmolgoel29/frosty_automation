@@ -14,6 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from webadmin import admins  # noqa: F401 — populates registry.REGISTRY on import
 from webadmin.auth import NotAuthenticated, login_redirect
 from webadmin.auth import router as auth_router
+from webadmin.chat_views import router as chat_router
 from webadmin.config import SECRET_KEY, SESSION_COOKIE_NAME
 from webadmin.csrf import CSRFCookieMiddleware
 from webadmin.dashboard import router as dashboard_router
@@ -51,5 +52,6 @@ async def root():
 
 app.include_router(auth_router, prefix="/admin")
 app.include_router(dashboard_router, prefix="/admin")
+app.include_router(chat_router, prefix="/admin")
 for model_admin in REGISTRY.values():
     app.include_router(build_router(model_admin), prefix="/admin")

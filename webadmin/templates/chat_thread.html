@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ lead.public_identifier }} — Chat — OpenOutreach Admin{% endblock %}
+{% block content %}
+<div class="list-header">
+    <h1><a href="/admin/chat">Chat</a> / {{ lead.public_identifier }}</h1>
+    {% if lead.human_takeover %}
+    <form method="post" action="/admin/chat/{{ lead.id }}/resume_ai" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <button type="submit" class="secondary-button">Resume AI</button>
+    </form>
+    {% else %}
+    <form method="post" action="/admin/chat/{{ lead.id }}/human_takeover" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+        <button type="submit" class="secondary-button">Human takeover (stop AI)</button>
+    </form>
+    {% endif %}
+</div>
+
+{% if not deal or not deal.assigned_profile_id %}
+<div class="form-error">This lead has no account assigned yet — it hasn't been connected with, so there's nowhere to send a message from.</div>
+{% endif %}
+
+<div id="thread" class="chat-thread" data-public-identifier="{{ lead.public_identifier }}">
+    {% for m in messages %}
+    <div class="bubble {{ 'bubble-out' if m.is_outgoing else 'bubble-in' }}" data-id="{{ m.id }}" data-replied="{{ m.replied|lower if m.replied is not none else '' }}">
+        <div class="bubble-meta">
+            {% if m.is_outgoing %}
+                {{ "You (AI)" if m.authored_by == "ai" else ("You (Manual)" if m.authored_by == "human" else "You") }}
+            {% else %}
+                {{ lead.public_identifier }}
+            {% endif %}
+            · {{ m.creation_date.strftime("%Y-%m-%d %H:%M") if m.creation_date else "" }}
+        </div>
+        <div class="bubble-content">{{ m.content }}</div>
+        {% if m.is_outgoing %}
+        <div class="bubble-status">{{ "Replied" if m.replied else "Awaiting reply" }}</div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="empty">No messages yet.</div>
+    {% endfor %}
+</div>
+
+<form method="post" action="/admin/chat/{{ lead.id }}/send" class="send-form">
+    <input type="hidden" name="csrf_token" value="{{ request.state.csrf_token }}">
+    <textarea name="message" rows="3" placeholder="Write a message…" required {{ "disabled" if not deal or not deal.assigned_profile_id else "" }}></textarea>
+    <div class="form-actions">
+        <button type="submit" class="primary-button" {{ "disabled" if not deal or not deal.assigned_profile_id else "" }}>Send</button>
+        <span class="hint">Queued for the account's browser session — arrives within about a minute, and turns on human takeover.</span>
+    </div>
+</form>
+
+<script>
+(function () {
+    var thread = document.getElementById("thread");
+    var lastId = 0;
+    thread.querySelectorAll(".bubble").forEach(function (el) {
+        lastId = Math.max(lastId, parseInt(el.dataset.id, 10) || 0);
+    });
+
+    function renderLabel(m) {
+        if (m.is_outgoing) {
+            if (m.authored_by === "ai") return "You (AI)";
+            if (m.authored_by === "human") return "You (Manual)";
+            return "You";
+        }
+        return thread.dataset.publicIdentifier;
+    }
+
+    function appendMessage(m) {
+        var bubble = document.createElement("div");
+        bubble.className = "bubble " + (m.is_outgoing ? "bubble-out" : "bubble-in");
+        bubble.dataset.id = m.id;
+        var when = m.creation_date ? new Date(m.creation_date).toISOString().slice(0, 16).replace("T", " ") : "";
+        var meta = document.createElement("div");
+        meta.className = "bubble-meta";
+        meta.textContent = renderLabel(m) + " · " + when;
+        var content = document.createElement("div");
+        content.className = "bubble-content";
+        content.textContent = m.content;
+        bubble.appendChild(meta);
+        bubble.appendChild(content);
+        if (m.is_outgoing) {
+            bubble.dataset.replied = m.replied ? "true" : "false";
+            var status = document.createElement("div");
+            status.className = "bubble-status";
+            status.textContent = m.replied ? "Replied" : "Awaiting reply";
+            bubble.appendChild(status);
+        }
+        thread.appendChild(bubble);
+    }
+
+    // Any incoming message is chronologically after every bubble already
+    // rendered (messages only ever get appended in order), so once one
+    // shows up every outgoing bubble still marked "awaiting" in the DOM has
+    // in fact been answered — flip them without waiting for a fresh
+    // server-computed value on each of them individually.
+    function markEarlierOutgoingAsReplied() {
+        thread.querySelectorAll('.bubble-out[data-replied="false"]').forEach(function (bubble) {
+            bubble.dataset.replied = "true";
+            var status = bubble.querySelector(".bubble-status");
+            if (status) status.textContent = "Replied";
+        });
+    }
+
+    function poll() {
+        fetch("/admin/chat/{{ lead.id }}/messages.json?after_id=" + lastId)
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+                if (!data || !data.messages.length) return;
+                var empty = thread.querySelector(".empty");
+                if (empty) empty.remove();
+                var sawIncoming = false;
+                data.messages.forEach(function (m) {
+                    appendMessage(m);
+                    lastId = Math.max(lastId, m.id);
+                    if (!m.is_outgoing) sawIncoming = true;
+                });
+                if (sawIncoming) markEarlierOutgoingAsReplied();
+                thread.scrollTop = thread.scrollHeight;
+            })
+            .catch(function () { /* transient network error — next poll retries */ });
+    }
+
+    thread.scrollTop = thread.scrollHeight;
+    setInterval(poll, 5000);
+})();
+</script>
+{% endblock %}

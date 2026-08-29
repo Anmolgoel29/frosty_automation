@@ -25,9 +25,11 @@ from linkedin import tracing
 from linkedin.diagnostics import failure_diagnostics
 from linkedin.exceptions import AuthenticationError
 from linkedin.models import Task
+from linkedin.tasks.check_inbox import handle_check_inbox
 from linkedin.tasks.check_pending import handle_check_pending
 from linkedin.tasks.connect import handle_connect
 from linkedin.tasks.follow_up import handle_follow_up
+from linkedin.tasks.manual_send import handle_manual_send
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,8 @@ _HANDLERS = {
     Task.TaskType.CONNECT: handle_connect,
     Task.TaskType.CHECK_PENDING: handle_check_pending,
     Task.TaskType.FOLLOW_UP: handle_follow_up,
+    Task.TaskType.CHECK_INBOX: handle_check_inbox,
+    Task.TaskType.MANUAL_SEND: handle_manual_send,
 }
 
 HEARTBEAT_INTERVAL = 300  # 5 minutes

@@ -93,6 +93,16 @@ CAMPAIGN_CONFIG = {
     "account_stagger_max_seconds": 60,
     # How often the supervisor re-reads the account roster and reconciles.
     "supervisor_interval_seconds": 60,
+    # check_inbox: one cheap Voyager conversations-list call per account,
+    # used to discover new replies without waiting on the next scheduled
+    # follow_up. Routed through the normal task queue, so it already inherits
+    # _StartSpacer/_HumanRhythmBreak/active-hours — this is just how often it
+    # re-enqueues itself. 5-10 min (jittered) means a few checks per burst
+    # window, about as often as a person would glance at a shared inbox —
+    # fast enough that a reply rarely sits for more than a few minutes, but
+    # nowhere near a bot-like polling cadence.
+    "check_inbox_interval_min_seconds": 300,   # 5 min
+    "check_inbox_interval_max_seconds": 600,   # 10 min
 }
 
 

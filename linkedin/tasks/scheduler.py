@@ -8,9 +8,19 @@ so. No other module creates Task rows.
 Three layers:
 
 1. **Low-level enqueue** — ``enqueue_connect``, ``enqueue_check_pending``,
-   ``enqueue_follow_up``. Insert a PENDING Task row, deduplicating against
-   existing PENDING rows with the same key. Called for in-state
-   continuations (connect loop, follow-up retries, rate-limit waits).
+   ``enqueue_follow_up``, ``enqueue_check_inbox``, ``enqueue_manual_send``.
+   Insert a PENDING Task row, deduplicating against existing PENDING rows
+   with the same key. Called for in-state continuations (connect loop,
+   follow-up retries, rate-limit waits, the inbox poll's self-reschedule).
+
+   One narrow, documented exception: the *first* ``manual_send`` row for a
+   given admin-panel send is inserted directly by ``webadmin`` (which has no
+   Django ORM/Playwright access by design — it writes to the same
+   ``linkedin_task`` table via its own SQLAlchemy mirror, the same pattern
+   ``TaskAdmin.run_now`` already uses to reschedule an existing task).
+   ``enqueue_manual_send`` here is only used for *retries* past that first
+   row (e.g. a rate-limit wait) — everything downstream of the initial
+   webadmin insert still funnels through this module's dedup machinery.
 
 2. **State-transition hook** — ``on_deal_state_entered(deal)``. Called by
    ``set_profile_state`` after a Deal is saved. Looks at the new state and
@@ -166,6 +176,37 @@ def enqueue_follow_up(
     )
 
 
+def enqueue_check_inbox(campaign_id: int, profile, delay_seconds: float) -> None:
+    """Enqueue the next inbox-poll task for one account working the campaign.
+
+    Account+campaign scoped like enqueue_connect (no public_id) — one
+    check_inbox loop per account covers every CONNECTED lead it owns in
+    a single Voyager call.
+    """
+    _insert_task(
+        task_type=Task.TaskType.CHECK_INBOX,
+        payload={"campaign_id": campaign_id},
+        delay_seconds=delay_seconds,
+        profile=profile,
+    )
+
+
+def enqueue_manual_send(lead_id: int, message: str, profile, delay_seconds: float = 3600) -> None:
+    """Retry path for a manual send that hit the account's rate limit.
+
+    The first row for a given send is inserted directly by webadmin (see the
+    module docstring's exception note) — this is only reached from
+    handle_manual_send when it needs to reschedule itself.
+    """
+    _insert_task(
+        task_type=Task.TaskType.MANUAL_SEND,
+        payload={"lead_id": lead_id, "message": message},
+        delay_seconds=delay_seconds,
+        profile=profile,
+        dedup_keys=["lead_id", "message"],
+    )
+
+
 # ── Delay helpers ─────────────────────────────────────────────────────
 
 
@@ -291,6 +332,28 @@ def _seed_connect_tasks(campaign, sessions: dict, live_keys: set[tuple], new_tas
         ))
 
 
+def _seed_check_inbox_tasks(campaign, sessions: dict, live_keys: set[tuple], new_tasks: list) -> None:
+    """Give every running account on this campaign its own inbox-poll task.
+
+    Structural copy of _seed_connect_tasks — safety net for an account that
+    has no check_inbox task at all (freshly added to a campaign, or its
+    previous handler crashed leaving no successor).
+    """
+    for profile in campaign.active_profiles():
+        if profile.pk not in sessions:
+            continue
+        key = (Task.TaskType.CHECK_INBOX, profile.pk, "")
+        if key in live_keys:
+            continue
+        live_keys.add(key)
+        new_tasks.append(Task(
+            task_type=Task.TaskType.CHECK_INBOX,
+            linkedin_profile=profile,
+            scheduled_at=timezone.now(),
+            payload={"campaign_id": campaign.pk},
+        ))
+
+
 def _seed_deal_tasks(campaign, sessions: dict, live_keys: set[tuple], new_tasks: list) -> None:
     """Ensure every active Deal has the task its state implies.
 
@@ -389,6 +452,7 @@ def reconcile(sessions: dict) -> None:
             live_keys = _live_task_keys(campaign.pk)
             new_tasks: list[Task] = []
             _seed_connect_tasks(campaign, sessions, live_keys, new_tasks)
+            _seed_check_inbox_tasks(campaign, sessions, live_keys, new_tasks)
             _seed_deal_tasks(campaign, sessions, live_keys, new_tasks)
             if new_tasks:
                 Task.objects.bulk_create(new_tasks)

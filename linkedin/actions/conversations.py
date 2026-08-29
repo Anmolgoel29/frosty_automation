@@ -21,6 +21,45 @@ def find_conversation_urn(api: PlaywrightLinkedinAPI, target_urn: str, mailbox_u
     return None
 
 
+# Candidate field names for a conversation's last-activity timestamp in
+# Voyager's messengerConversations response, tried in order. Unconfirmed
+# against a live response — probe with
+# `python -m linkedin.api.messaging.conversations --conversations --raw`
+# and update this list if none of these actually appear.
+_LAST_ACTIVITY_FIELDS = ("lastActivityAt", "lastActivityAtV2", "lastActivityTimestamp")
+
+
+def match_conversations(elements: list[dict], target_urns: set[str]) -> dict[str, dict]:
+    """Match conversation-list elements to a set of participant URNs we own.
+
+    Like ``find_conversation_urn`` but returns *every* match keyed by
+    participant URN in one pass, instead of stopping at the first hit — used
+    by check_inbox to scan a whole account's conversation list against a
+    whole account's owned leads in one call.
+    """
+    matches: dict[str, dict] = {}
+    for conv in elements:
+        for p in conv.get("conversationParticipants", []):
+            urn = p.get("hostIdentityUrn")
+            if urn in target_urns:
+                matches[urn] = conv
+    return matches
+
+
+def conversation_last_activity(conv: dict) -> datetime | None:
+    """Parse a conversation element's last-activity timestamp, if present.
+
+    Returns None if no known field is present — callers should treat that as
+    "unknown, assume changed" rather than "no activity", since silently
+    skipping a sync is a worse failure than an occasional redundant one.
+    """
+    for field in _LAST_ACTIVITY_FIELDS:
+        value = conv.get(field)
+        if value:
+            return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+    return None
+
+
 def find_conversation_urn_via_navigation(session, target_urn: str) -> str | None:
     """Navigate to the messaging page for a profile and capture the conversation URN.
 

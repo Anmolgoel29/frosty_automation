@@ -60,6 +60,15 @@ class ChatMessage(models.Model):
         verbose_name=_("Outgoing"),
         help_text=_("True if sent by us, False if received"),
     )
+    authored_by = models.CharField(
+        max_length=10, null=True, blank=True, default=None,
+        choices=[("ai", "AI"), ("human", "Human")],
+        verbose_name=_("Authored by"),
+        help_text=_(
+            "Who/what composed this outgoing message. Null = incoming, or an "
+            "outgoing message synced before this field existed."
+        ),
+    )
     def __str__(self):
         return f'{truncatechars(self.content, 70)}'
 

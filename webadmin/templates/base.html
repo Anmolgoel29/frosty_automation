@@ -12,6 +12,7 @@
     <nav class="sidebar">
         <div class="brand"><a href="/admin/">OpenOutreach</a></div>
         <ul class="nav-list">
+            <li><a href="/admin/chat" class="{{ 'active' if request.url.path.startswith('/admin/chat') else '' }}">Chat</a></li>
             {% for item in nav_items() %}
             <li><a href="/admin/{{ item.slug }}" class="{{ 'active' if admin and admin.slug == item.slug else '' }}">{{ item.label }}</a></li>
             {% endfor %}
