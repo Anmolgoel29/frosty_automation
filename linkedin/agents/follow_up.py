@@ -12,7 +12,6 @@ from typing import Literal
 
 import jinja2
 from pydantic import BaseModel, Field, model_validator
-from pydantic_ai import Agent
 
 from linkedin.conf import PROMPTS_DIR
 from linkedin.llm import get_llm_model, run_agent_sync
@@ -50,11 +49,13 @@ class FollowUpDecision(BaseModel):
         return self
 
 
-# Number of trailing verbatim messages the agent sees alongside the rolling
-# chat_summary. Older turns live in the summary fact list; the recency window
-# preserves literal phrasing for the turns that matter most when composing
-# the next reply.
-RECENT_MESSAGES_WINDOW = 6
+# The agent reads the *whole* thread verbatim — no summarisation layer. These
+# two caps exist only so a pathological thread can't blow the context window;
+# a normal LinkedIn DM conversation is well under both. When either bites we
+# keep the newest messages and say so in the transcript header, rather than
+# quietly handing the agent a truncated history it thinks is complete.
+MAX_TRANSCRIPT_MESSAGES = 200
+MAX_TRANSCRIPT_CHARS = 60_000
 
 
 def _humanize_age(when: datetime, now: datetime) -> str:
@@ -67,19 +68,34 @@ def _humanize_age(when: datetime, now: datetime) -> str:
     return f"{delta.days}d ago"
 
 
-def _format_recent_messages(messages: list, now: datetime) -> str:
-    """Render the last few ChatMessage rows as a timestamped transcript."""
-    if not messages:
-        return "No recent messages."
-    lines = []
-    for m in messages:
-        content = (m.content or "").strip()
-        if not content:
-            continue
-        speaker = "Me" if m.is_outgoing else "Lead"
-        prefix = f"{speaker} ({_humanize_age(m.creation_date, now)})" if m.creation_date else speaker
-        lines.append(f"{prefix}: {content}")
-    return "\n".join(lines) or "No recent messages."
+def _format_transcript(messages: list, now: datetime, *, self_name: str, omitted: int = 0) -> str:
+    """Render the conversation as a numbered, speaker-tagged, dated transcript.
+
+    One block per message: an index, who sent it, an absolute timestamp and a
+    relative age, then the body indented underneath. Multi-line message bodies
+    keep their line breaks — the indent is what keeps them from reading as new
+    turns.
+    """
+    turns = [(m, (m.content or "").strip()) for m in messages]
+    turns = [(m, c) for m, c in turns if c]
+    if not turns:
+        return "(no messages have been exchanged yet — this thread is empty)"
+
+    lines: list[str] = []
+    if omitted:
+        lines.append(
+            f"[{omitted} older message(s) omitted — thread too long to include in full. "
+            f"The messages below are the most recent ones, in order.]"
+        )
+    for idx, (m, content) in enumerate(turns, start=1):
+        speaker = f"YOU ({self_name})" if m.is_outgoing else "LEAD"
+        when = (
+            f"{m.creation_date:%Y-%m-%d %H:%M} ({_humanize_age(m.creation_date, now)})"
+            if m.creation_date else "time unknown"
+        )
+        body = "\n".join(f"    {line}" for line in content.splitlines())
+        lines.append(f"[{idx}] {speaker} — {when}\n{body}")
+    return "\n\n".join(lines)
 
 
 def _days_since_last_outgoing(messages: list, now: datetime) -> int | None:
@@ -114,31 +130,49 @@ def _replace_em_dashes(text: str) -> str:
     return text.replace("—", "-")
 
 
-def _log_chat_facts(public_id: str, deal) -> None:
-    """Log the mem0 chat facts the agent is working with."""
-    chat_facts = (deal.chat_summary or {}).get("facts", [])
-    if not chat_facts:
-        return
-    lines = [f"chat facts for {public_id}:"]
-    lines.extend(f"  • {f}" for f in chat_facts)
-    logger.info("\n".join(lines))
+def _load_conversation(deal) -> tuple[list, int]:
+    """Full ChatMessage history for `deal.lead`, chronological, plus omitted count.
 
-
-def _load_recent_messages(deal, limit: int = RECENT_MESSAGES_WINDOW) -> list:
-    """Last `limit` ChatMessages for `deal.lead`, in chronological order."""
+    Returns the newest `MAX_TRANSCRIPT_MESSAGES` rows (trimmed further if they
+    exceed `MAX_TRANSCRIPT_CHARS`) and how many older rows were dropped to get
+    there — the caller surfaces that number in the transcript header so the
+    agent is never told a partial history is complete. Both caps are far above
+    a real LinkedIn thread, so `omitted` is 0 in practice.
+    """
     from chat.models import ChatMessage
     from django.contrib.contenttypes.models import ContentType
 
     ct = ContentType.objects.get_for_model(deal.lead.__class__)
-    qs = (
-        ChatMessage.objects
-        .filter(content_type=ct, object_id=deal.lead_id)
-        .order_by("-creation_date", "-pk")[:limit]
-    )
-    return list(reversed(list(qs)))
+    base = ChatMessage.objects.filter(content_type=ct, object_id=deal.lead_id)
+    # Fetch one row past the cap: if it comes back the thread overflows, and
+    # only then do we pay for a COUNT to report how many were left out.
+    rows = list(base.order_by("-creation_date", "-pk")[:MAX_TRANSCRIPT_MESSAGES + 1])
+    overflowed = len(rows) > MAX_TRANSCRIPT_MESSAGES
+    if overflowed:
+        rows = rows[:MAX_TRANSCRIPT_MESSAGES]
+
+    # `rows` is newest-first, so walking it forward and stopping on the
+    # character budget drops the *oldest* turns — the ones least likely to
+    # matter for the next reply. Blank bodies (attachment-only turns) are
+    # skipped so the transcript's numbering stays contiguous.
+    budget = MAX_TRANSCRIPT_CHARS
+    kept: list = []
+    for m in rows:
+        content = (m.content or "").strip()
+        if not content:
+            continue
+        if kept and budget - len(content) < 0:
+            overflowed = True
+            break
+        budget -= len(content)
+        kept.append(m)
+    kept.reverse()
+
+    omitted = base.count() - len(kept) if overflowed else 0
+    return kept, max(omitted, 0)
 
 
-def _render_system_prompt(session, deal, recent_messages: list) -> str:
+def _render_system_prompt(session, deal, messages: list, omitted: int = 0) -> str:
     """Render the agent system prompt from the Jinja2 template."""
     from django.utils import timezone
 
@@ -152,38 +186,46 @@ def _render_system_prompt(session, deal, recent_messages: list) -> str:
     now = timezone.now()
     return template.render(
         self_name=self_name,
+        lead_handle=deal.lead.public_identifier,
         contact_email=session.linkedin_profile.linkedin_username,
         product_docs=campaign.product_docs or "",
         campaign_objective=campaign.campaign_objective or "",
         booking_link=campaign.booking_link or "",
         profile_summary=_format_facts(deal.profile_summary),
-        chat_summary=_format_facts(deal.chat_summary),
-        recent_messages=_format_recent_messages(recent_messages, now),
+        transcript=_format_transcript(messages, now, self_name=self_name, omitted=omitted),
+        message_count=len(messages),
         today=now.strftime("%Y-%m-%d"),
-        days_since_last_outgoing=_days_since_last_outgoing(recent_messages, now),
-        unanswered_outgoing=_count_unanswered_outgoing(recent_messages),
+        days_since_last_outgoing=_days_since_last_outgoing(messages, now),
+        unanswered_outgoing=_count_unanswered_outgoing(messages),
     )
 
 
 def run_follow_up_agent(session, deal) -> FollowUpDecision:
     """Read conversation and return a structured follow-up decision.
 
-    Assumes the caller has already synced the conversation (folding new
-    messages into ``deal.chat_summary``) — this only re-reads the Deal's
-    persistent summaries plus a small recency window of verbatim messages,
-    and asks the LLM to decide.
+    Assumes the caller has already synced the conversation, so the local
+    ``ChatMessage`` rows are current. The agent is handed the full thread
+    verbatim plus ``deal.profile_summary``, and asked to decide.
     """
-    public_id = deal.lead.public_identifier
-    deal.refresh_from_db(fields=["chat_summary", "profile_summary"])
-    _log_chat_facts(public_id, deal)
+    from pydantic_ai import Agent
 
-    recent = _load_recent_messages(deal)
-    system_prompt = _render_system_prompt(session, deal, recent)
+    public_id = deal.lead.public_identifier
+    deal.refresh_from_db(fields=["profile_summary"])
+
+    messages, omitted = _load_conversation(deal)
+    logger.info(
+        "follow_up agent for %s: %d message(s) in transcript (%d omitted)",
+        public_id, len(messages), omitted,
+    )
+    system_prompt = _render_system_prompt(session, deal, messages, omitted)
 
     agent = Agent(
         get_llm_model("expensive"),
         output_type=FollowUpDecision,
-        model_settings={"temperature": 0.7, "timeout": 60, "thinking": "xhigh"},
+        # Low temperature: this model composes text that goes out under the
+        # user's own name. Sampling diversity here buys nothing and is what
+        # lets it drift off the transcript.
+        model_settings={"temperature": 0.2, "timeout": 60, "thinking": "xhigh"},
     )
     decision = run_agent_sync(agent.run(system_prompt)).output
     if decision is None:
@@ -236,7 +278,7 @@ if __name__ == "__main__":
     materialize_profile_summary_if_missing(deal, session)
     decision = run_follow_up_agent(session, deal)
 
-    logger.info("Chat facts: %s", _format_facts(deal.chat_summary))
+    logger.info("Profile facts: %s", _format_facts(deal.profile_summary))
     logger.info("Action: %s", decision.action)
     if decision.message:
         logger.info("Message: %s", decision.message)

@@ -128,8 +128,8 @@ Profile CRUD backed by Django models:
 - **`leads.py`** — Lead CRUD: `lead_exists()`, `create_enriched_lead()`, `promote_lead_to_deal()`, `get_leads_for_qualification()`, `disqualify_lead()`, `lead_profile_by_id()`.
 - **`deals.py`** — Deal/state operations: `set_profile_state()`, `get_qualified_profiles()`, `get_ready_to_connect_profiles()`, `get_profile_dict_for_public_id()`, `increment_connect_attempts()`, `create_disqualified_deal()`, `create_freemium_deal()`.
 - **`enrichment.py`** — Lazy enrichment/embedding: `ensure_lead_enriched()`, `ensure_profile_embedded()`, `load_embedding()`.
-- **`chat.py`** — `sync_conversation()`: fetches messages from Voyager API, upserts `ChatMessage` rows by `linkedin_urn`, folds new messages into `Deal.chat_summary` via `update_chat_summary()`. `save_chat_message()` for manual inserts.
-- **`summaries.py`** — Lazy mem0-style fact summaries. `materialize_profile_summary_if_missing()`: one-time profile fact extraction. `update_chat_summary()`: incremental chat fact extraction + `reconcile_facts()` (ADD/UPDATE/DELETE/NONE events). See [`docs/follow_up_agent.md`](docs/follow_up_agent.md) for details.
+- **`chat.py`** — `sync_conversation()`: fetches messages from Voyager API and upserts `ChatMessage` rows by `linkedin_urn`. No derived summary, no LLM call — the rows are the conversation memory. `save_chat_message()` for manual inserts.
+- **`summaries.py`** — Lazy mem0-style fact summary for the *profile* only. `materialize_profile_summary_if_missing()`: one-time profile fact extraction. There is no chat summariser — conversation history reaches the agent verbatim. See [`docs/follow_up_agent.md`](docs/follow_up_agent.md) for details.
 
 ## Agents (`linkedin/agents/`)
 

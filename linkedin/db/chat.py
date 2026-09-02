@@ -18,34 +18,20 @@ def sync_conversation(session, public_identifier: str) -> list[dict]:
     """Fetch messages from Voyager API and upsert into ChatMessage.
 
     Returns messages as a list of {sender, text, timestamp, is_outgoing} dicts
-    from the DB (always the source of truth after sync). Newly-synced messages
-    are also folded into the campaign Deal's `chat_summary` (mem0-style facts).
+    from the DB (always the source of truth after sync). No derived summary is
+    built: the ``ChatMessage`` rows written here *are* the conversation memory,
+    read back verbatim by the follow-up agent.
     """
     lead, ct = _get_lead_and_ct(public_identifier)
-    new_messages = _sync_from_api(session, public_identifier, lead, ct)
-    _update_deal_chat_summary(session, lead, new_messages)
+    _sync_from_api(session, public_identifier, lead, ct)
 
     return _read_from_db(public_identifier)
-
-
-def _update_deal_chat_summary(session, lead, new_messages):
-    """Fold newly-synced ChatMessages into the campaign Deal's chat_summary."""
-    if not new_messages:
-        return
-    from crm.models import Deal
-    from linkedin.db.summaries import seller_name_from, update_chat_summary
-
-    deal = Deal.objects.filter(lead=lead, campaign=session.campaign).first()
-    if not deal:
-        return
-    update_chat_summary(deal, new_messages, seller_name=seller_name_from(session))
 
 
 def _sync_from_api(session, public_identifier: str, lead, ct) -> list:
     """Fetch messages from Voyager API and upsert into DB.
 
-    Returns the list of newly-created ``ChatMessage`` rows (in arrival order),
-    so callers can incrementally update derived caches like ``chat_summary``.
+    Returns the list of newly-created ``ChatMessage`` rows (in arrival order).
     """
     from chat.models import ChatMessage
     from linkedin.actions.conversations import (

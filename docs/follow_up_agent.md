@@ -22,9 +22,10 @@ daemon picks up Task
     ▼
 handle_follow_up()           ← linkedin/tasks/follow_up.py
     ├─ rate limit check      ← LinkedInProfile.can_execute(FOLLOW_UP)
+    ├─ sync conversation     ← Voyager API → ChatMessage upsert (no summarisation)
+    ├─ cooldown gates        ← _unanswered_count / _too_soon_to_nudge
     ├─ materialize profile summary (lazy, once per lead×campaign)
-    ├─ sync conversation     ← Voyager API → ChatMessage upsert → chat_summary update
-    └─ run_follow_up_agent() ← linkedin/agents/follow_up.py
+    └─ run_follow_up_agent() ← linkedin/agents/follow_up.py, reads the FULL thread
          │
          ▼
     FollowUpDecision
@@ -54,28 +55,73 @@ fields are missing for the chosen action.
 
 ## Agent Context
 
-The agent sees a rich prompt rendered from `follow_up_agent.j2` with:
+The agent sees a prompt rendered from `follow_up_agent.j2` with:
 
 | Section | Source | Built When |
 |---------|--------|------------|
 | Seller identity (`self_name`) | `session.self_profile` | every call |
 | Product docs, campaign objective, booking link | `Campaign` model | every call |
 | Profile facts | `Deal.profile_summary` (JSON fact list) | lazy, once per lead×campaign |
-| Chat facts | `Deal.chat_summary` (JSON fact list) | incremental, on each sync |
-| Recent messages (verbatim, with age) | last 6 `ChatMessage` rows | every call |
+| **Full conversation transcript** | **every** `ChatMessage` row for the lead | every call |
+| `message_count` | length of that transcript | every call |
 | `days_since_last_outgoing` | computed from messages | every call |
 | `unanswered_outgoing` count | trailing run of outgoing messages | every call |
 
-The split between **summary facts** (durable, LLM-extracted) and **verbatim
-messages** (recent window) lets the agent reason about the full conversation
-history without overflowing the context with old messages.
+### The transcript
+
+`_load_conversation(deal)` reads the whole thread, oldest first, and
+`_format_transcript()` renders it as numbered, speaker-tagged, dated turns
+inside explicit `--- BEGIN TRANSCRIPT ---` / `--- END TRANSCRIPT ---` fences:
+
+```
+[1] YOU (Diego Ruiz) — 2026-08-10 09:14 (23d ago)
+    Hola Andrea, vi que lideras ops en Acme.
+
+[2] LEAD — 2026-08-10 11:02 (23d ago)
+    Hola Diego! Si, desde hace dos anos.
+    En que puedo ayudarte?
+```
+
+Multi-line bodies stay indented under their turn so a line break inside one
+message can't read as a new turn. The template tells the agent, in as many
+words, that these lines are the *only* record of what happened: anything not
+literally present did not occur, and the `YOU (...)` lines are the complete set
+of things it has ever told, offered, promised, or asked this lead.
+
+`MAX_TRANSCRIPT_MESSAGES` (200) and `MAX_TRANSCRIPT_CHARS` (60 000) exist purely
+so a pathological thread can't blow the context window. Both sit far above any
+real LinkedIn conversation. When either bites, the newest messages are kept and
+the header says how many older ones were dropped — the agent is never handed a
+partial history it believes is complete.
+
+### Why there is no chat summariser
+
+The previous design compressed the thread into a `Deal.chat_summary` fact list
+via two chained LLM calls per sync (`extract_facts` → mem0 `reconcile_facts`),
+and showed the agent only the last 6 raw messages. It was the direct cause of
+hallucinated and off-topic outgoing messages:
+
+1. **Extraction dropped the seller's side.** The prompt said "extract facts
+   about the LEAD only … never extract facts about what [Me] said, offered, or
+   asked." Past message 6, the agent had no record of its own promises, offers,
+   questions or links — so it re-asked answered questions, re-pitched, and
+   invented a shared history that sounded plausible.
+2. **A fact list has no order, no time, no speaker.** Unordered bullets, no way
+   to tell recent from stale or agreed-to from merely floated.
+3. **Errors were permanent.** Both passes were lossy rewrites over rows that
+   were never re-read. One bad extraction poisoned the Deal for life, and mem0's
+   `UPDATE`/`DELETE` events could rewrite a correct fact into a wrong one.
+4. **Silent gaps.** Outgoing-only bursts short-circuited extraction, and a sync
+   before the `Deal` row existed skipped it. Only *newly created* rows were ever
+   folded in, so history missed once was missed forever.
+
+Reading the full transcript costs a few thousand extra prompt tokens per call
+and removes two LLM calls per sync.
 
 ## Summaries Pipeline
 
-Both summaries live on the `Deal` model as JSON fact lists (`{"facts": [...]}`).
-All LLM calls go through `linkedin/db/summaries.py`.
-
-### Profile Summary
+`Deal.profile_summary` is the only remaining derived summary — a JSON fact list
+(`{"facts": [...]}`) built by `linkedin/db/summaries.py`.
 
 `materialize_profile_summary_if_missing(deal, session)`:
 
@@ -85,25 +131,11 @@ All LLM calls go through `linkedin/db/summaries.py`.
 4. Persists on `Deal.profile_summary`
 
 Runs **once** per `(lead, campaign)` lifetime — the first time a follow-up
-touches the deal.
+touches the deal. This one earns its keep: the raw Voyager profile blob is tens
+of kilobytes of JSON, and it's static background, not dialogue.
 
-### Chat Summary
-
-`update_chat_summary(deal, new_messages)`:
-
-1. Called by `sync_conversation()` after upserting new `ChatMessage` rows
-2. Formats new messages as a labeled transcript (`[Me]` / `[Lead]`)
-3. Short-circuits if there are no incoming (lead) messages — a burst of outgoing
-   messages alone doesn't trigger an LLM call
-4. Extracts new facts via LLM (`extract_facts`)
-5. Reconciles against existing facts via `reconcile_facts()` — mem0-style
-   ADD/UPDATE/DELETE/NONE events, not naive append-and-dedup
-6. Persists updated list on `Deal.chat_summary`
-
-The reconciliation step uses mem0's `DEFAULT_UPDATE_MEMORY_PROMPT` (vendored at
-`linkedin/vendor/mem0/configs/prompts.py`) to decide whether each new fact
-should be added, should update an existing fact, should delete a stale fact, or
-is redundant (NONE).
+`Deal.chat_summary` still exists as a column but is dead — never read, never
+written. It was left in place rather than dropped via a destructive migration.
 
 ## Conversation Sync
 
@@ -113,7 +145,8 @@ is redundant (NONE).
    `find_conversation_urn_via_navigation()` fallback
 2. Fetches messages via Voyager Messaging GraphQL API
 3. Upserts into `ChatMessage` by `linkedin_urn` (dedup key)
-4. Folds newly-created rows into `deal.chat_summary` via `update_chat_summary()`
+
+No LLM runs on this path. The rows it writes *are* the conversation memory.
 
 ## Message Sending
 
@@ -170,7 +203,8 @@ The system prompt (`follow_up_agent.j2`) follows the Mom Test method:
 - **Discovery first**: open with questions about the lead's work and problems — no product mention until real signal emerges
 - **Pitching on signal**: transition when the lead describes a concrete problem we solve, expresses frustration with their current approach, or asks what we do
 - **Keep learning while pitching**: weave discovery questions into the conversation even after introducing the product
-- **Language**: infer from profile facts (name origin, location, languages); default to English
+- **Language**: infer from profile facts (name origin, location, languages) and from what the lead actually writes; default to English
+- **Grounding**: the transcript is the only record — never reference a claim, link, price, name or date that isn't literally in it
 - **Tone**: short, casual, warm — like real LinkedIn DMs (1-3 sentences max)
 - **No boilerplate**: no placeholders, no signatures, no corporate speak
 - **Timing**: agent decides — active reply → 2-8h; async → 24h; no reply → 24-48h; 3+ unanswered → consider `mark_completed`

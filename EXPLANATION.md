@@ -94,7 +94,8 @@ concurrently in Docker).
   laziness — see the docstring at `crm/models/lead.py:40-47`.
 - **`Deal`** (`crm/models/deal.py`) — the *per-campaign* pipeline state for a Lead. `UniqueConstraint(lead,
   campaign)`. Carries `state` (a `ProfileState`), `outcome` (an `Outcome`), `reason`, `connect_attempts`,
-  `backoff_hours`, and the two lazy fact-list JSON fields `profile_summary`/`chat_summary`.
+  `backoff_hours`, and the lazy fact-list JSON field `profile_summary`. (`chat_summary` still exists as a
+  column but is dead — the chat summariser was removed; see [§9](#9-the-conversational-ai-follow-up-agent--memory).)
 
 ### `chat` app
 
@@ -414,46 +415,53 @@ inconsistency between the two API surfaces.
 
 ## 9. The conversational AI (follow-up agent + memory)
 
-`Deal.profile_summary` and `Deal.chat_summary` are lazy, mem0-style JSON fact lists (`{"facts": [...]}`) —
-the follow-up agent never sees the raw scraped profile or the entire chat history; it sees a curated,
-incrementally-maintained list of facts plus the last 6 raw messages for tone/immediacy.
+`Deal.profile_summary` is a lazy, mem0-style JSON fact list (`{"facts": [...]}`) built from the scraped
+profile. **Conversation history is not summarised at all** — the follow-up agent reads the entire
+`ChatMessage` thread verbatim on every run. There is one derived cache, and it is about the profile, not
+the chat.
 
 - **`materialize_profile_summary_if_missing(deal, session)`** (`linkedin/db/summaries.py`) fires once, on the
   first follow-up touch for a `(lead, campaign)` pair: one extra live Voyager re-scrape, `build_profile_text`,
-  then `extract_facts()` against that text.
+  then `extract_facts()` against that text. This one is worth summarising: the raw Voyager profile blob is
+  tens of kilobytes of JSON, and it is static background, not dialogue.
+- **`extract_facts(text, context)`** — `temperature=0.0`, the vendored `_FACT_EXTRACTION_PROMPT`, optionally
+  biased by the campaign objective + product docs so role/industry facts survive and trivia doesn't.
 - **`sync_conversation()`** (`linkedin/db/chat.py`) fetches messages via Voyager (or the DOM-navigation
-  fallback), upserts `ChatMessage` rows keyed by `linkedin_urn`, and — only if there are genuinely new messages
-  — calls `update_chat_summary()`.
-- **`update_chat_summary()`** filters to **incoming (lead) messages only** before extraction —
-  `_format_messages_for_extraction` returns `""` if every new message is outgoing, which short-circuits the
-  whole thing with no LLM call at all. This is deliberate: `chat_summary` is meant to hold facts *about the
-  lead*, never a record of the seller's own pitch.
-- **`extract_facts(text, seller_name, context)`** — `temperature=0.0`, uses the vendored
-  `_FACT_EXTRACTION_PROMPT` plus an **identity-binding block**: `"[Me] is named {seller_name}."` with an
-  instruction that any mention of that name inside a `[Lead]` line refers to the seller, not the lead. This
-  exists specifically to stop the LLM from inferring "the lead's name is Diego" out of a reply like `"Hola
-  Diego, gracias..."` where Diego is the seller being greeted back.
-- **`reconcile_facts(existing, new, seller_name)`** — the actual mem0 ADD/UPDATE/DELETE/NONE mechanism:
-  1. Existing facts get keyed by their **current list index as a string id** (`{"0": fact0, "1": fact1, ...}`).
-  2. mem0's vendored `get_update_memory_messages()` prompt is built from that indexed list plus the new
-     candidate facts, with a custom preamble prepended: *"Existing facts that describe {seller_name} as if
-     they were the lead are contamination — issue a DELETE for them."* This is the actual mechanism for
-     cleaning up facts that were previously mis-attributed before the identity-binding fix existed.
-  3. The LLM (temperature 0.0, plain-text output parsed as JSON, with markdown-fence/reasoning-tag stripping
-     fallbacks) returns a list of `{id, text, event}` actions.
-  4. `_apply_memory_actions` rebuilds the fact store: `ADD` appends at a fresh sequential id; `UPDATE`
-     overwrites in place by id (logs+skips if the LLM hallucinated an unknown id); `DELETE` removes by id;
-     `NONE` is a no-op. The final list preserves original ordering for untouched facts.
-  - **Caveat**: reconciliation — including the contamination cleanup — only runs when there's genuinely new
-    incoming content. A dormant Deal (lead has gone silent) never gets its `chat_summary` reconciled again,
-    even if it was contaminated before the identity-binding fix landed.
+  fallback) and upserts `ChatMessage` rows keyed by `linkedin_urn`. That is all it does — the rows *are* the
+  memory. No LLM runs on the sync path.
+
+**Why there is no chat summariser (removed deliberately).** The previous design compressed the thread into a
+`Deal.chat_summary` fact list via two chained LLM calls per sync (`extract_facts` → mem0
+`reconcile_facts` ADD/UPDATE/DELETE), and showed the agent only the last 6 raw messages. It was the direct
+cause of hallucinated and off-topic outgoing messages:
+
+1. **Extraction dropped the seller's side entirely.** The prompt said *"Extract facts about the LEAD only…
+   Never extract facts about what [Me] said, offered, or asked."* Past message 6, the agent had **no record of
+   its own promises, offers, questions, or links**, so it re-asked answered questions, re-pitched, and invented
+   a plausible-sounding shared history.
+2. **A fact list has no order, no time, and no speaker.** Facts were unordered bullets with no way to tell
+   recent from stale or agreed-to from merely floated. The agent reconstructed a narrative that read fluently
+   and was wrong.
+3. **Errors were permanent.** Both LLM passes were lossy rewrites over rows that were never re-read. One bad
+   extraction poisoned the Deal for its whole lifetime, and mem0's `UPDATE`/`DELETE` events could silently
+   rewrite a correct stored fact into a wrong one.
+4. **Silent gaps.** A burst of outgoing-only messages short-circuited extraction, and a sync that happened
+   before the `Deal` row existed skipped it entirely. Because only *newly created* rows were ever folded in,
+   history missed once was missed forever.
+
+Full-transcript reading fixes all four at a cost of a few thousand extra prompt tokens per call, and removes
+two LLM calls per sync.
 
 **`run_follow_up_agent(session, deal)`** (`linkedin/agents/follow_up.py`) renders `follow_up_agent.j2` with:
 `self_name` (seller's first name), `contact_email` (surfaced as `linkedin_profile.linkedin_username` — the
 agent is instructed to offer this instead of ever promising email/calls "outside LinkedIn"), `product_docs`,
-`campaign_objective`, `booking_link`, the two fact lists as bullet points, the last 6 `ChatMessage` rows with
-humanized ages (`"2h ago"`) tagged `Me`/`Lead`, plus `today`, `days_since_last_outgoing`, and
-`unanswered_outgoing`. One `pydantic_ai.Agent` call, `temperature=0.7`, structured output
+`campaign_objective`, `booking_link`, `profile_summary` as bullet points, and the **complete** `ChatMessage`
+thread as a numbered transcript — every turn tagged `YOU (<name>)` or `LEAD`, with an absolute timestamp and a
+humanized age (`"2h ago"`), fenced by `--- BEGIN TRANSCRIPT ---` / `--- END TRANSCRIPT ---` — plus `today`,
+`message_count`, `days_since_last_outgoing`, and `unanswered_outgoing`. `_load_conversation()` caps the
+transcript at `MAX_TRANSCRIPT_MESSAGES` (200) / `MAX_TRANSCRIPT_CHARS` (60 000); both sit far above a real
+LinkedIn thread, and when either bites the header states how many older messages were dropped rather than
+passing a partial history off as complete. One `pydantic_ai.Agent` call, `temperature=0.2`, structured output
 `FollowUpDecision`:
 
 ```python
@@ -535,8 +543,8 @@ Prompt temperatures, gathered across all LLM call sites:
 |---|---|---|
 | Lead qualification | `qualify_lead.j2` | 0.7 |
 | Search keyword generation | `search_keywords.j2` | 0.9 |
-| Follow-up conversation decision | `follow_up_agent.j2` | 0.7 |
-| Fact extraction / mem0 reconciliation | (vendored prompts, `summaries.py`) | 0.0 |
+| Follow-up conversation decision | `follow_up_agent.j2` | 0.2 |
+| Profile fact extraction | (vendored prompt, `summaries.py`) | 0.0 |
 
 ## 12. Django Admin & dashboard
 
@@ -613,9 +621,9 @@ driven with `docker compose` directly.
    accepted or it gives up (`SkipProfile` → `FAILED`).
 6. **Connected** — acceptance flips the Deal to `CONNECTED`, which auto-enqueues a `follow_up` task.
 7. **Conversation** — each `follow_up` cycle syncs the real LinkedIn thread first, checks the unanswered-reply
-   gate, then (if not throttled) asks the follow-up LLM agent — armed with `profile_summary`/`chat_summary`
-   fact lists plus the last 6 raw messages — to send a message, wait, or close out the Deal with a specific
-   `Outcome`. Every incoming reply gets folded into `chat_summary` via the mem0-style reconcile step.
+   gate, then (if not throttled) asks the follow-up LLM agent — armed with the `profile_summary` fact list
+   plus the **entire** message thread verbatim — to send a message, wait, or close out the Deal with a specific
+   `Outcome`. The synced `ChatMessage` rows are the memory; nothing is summarised.
 8. **Terminal** — the Deal ends either because the agent explicitly calls `mark_completed` (converted,
    not_interested, no_budget, etc.) or automatically, after 3 consecutive unanswered outgoing messages,
    as `outcome="unresponsive"`.

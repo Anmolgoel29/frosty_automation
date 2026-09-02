@@ -1,7 +1,7 @@
 """Tests for the follow-up agent context builder + Jinja template."""
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,44 +19,63 @@ def deal_with_summaries(db, fake_session):
             "Based in Berlin, Germany.",
             "Speaks English and German.",
         ]},
-        chat_summary={"facts": [
-            "Lead is curious about pricing.",
-            "Lead has a small team budget.",
-        ]},
     )
 
 
-def _msg(content, is_outgoing):
+def _msg(content, is_outgoing, creation_date=None):
     m = MagicMock()
     m.content = content
     m.is_outgoing = is_outgoing
-    m.creation_date = None
+    m.creation_date = creation_date
     return m
 
 
+def _seed_messages(lead, owner, count, base):
+    """Create `count` alternating ChatMessages one minute apart from `base`."""
+    from chat.models import ChatMessage
+    from django.contrib.contenttypes.models import ContentType
+    from datetime import timedelta
+
+    ct = ContentType.objects.get_for_model(lead)
+    for i in range(count):
+        ChatMessage.objects.create(
+            content_type=ct, object_id=lead.pk,
+            content=f"msg-{i}",
+            is_outgoing=(i % 2 == 0),
+            owner=owner,
+            linkedin_urn=f"urn:msg:{i}",
+            creation_date=base + timedelta(minutes=i),
+        )
+
+
 class TestRenderSystemPrompt:
-    def test_includes_three_summary_blocks(self, db, fake_session, deal_with_summaries):
+    def test_includes_profile_facts_and_full_transcript(self, db, fake_session, deal_with_summaries):
         from linkedin.agents.follow_up import _render_system_prompt
 
         # Stub session.self_profile so the prompt builder works without a browser.
         fake_session.self_profile = {"first_name": "Bob", "last_name": "Builder", "urn": "urn:li:fsd_profile:SELF"}
 
-        recent = [_msg("Hi, what do you do?", is_outgoing=True), _msg("Sales tooling.", is_outgoing=False)]
-        prompt = _render_system_prompt(fake_session, deal_with_summaries, recent)
+        messages = [_msg("Hi, what do you do?", is_outgoing=True), _msg("Sales tooling.", is_outgoing=False)]
+        prompt = _render_system_prompt(fake_session, deal_with_summaries, messages)
 
         # Profile facts appear under the lead-knowledge block.
         assert "Senior engineer at Acme Corp." in prompt
         assert "Based in Berlin, Germany." in prompt
-        # Chat facts appear under the conversation-knowledge block.
-        assert "Lead is curious about pricing." in prompt
-        # Verbatim recent messages appear in Me:/Lead: format.
-        assert "Me: Hi, what do you do?" in prompt
-        assert "Lead: Sales tooling." in prompt
+        # Every message is present verbatim, speaker-tagged and numbered.
+        assert "[1] YOU (Bob Builder)" in prompt
+        assert "Hi, what do you do?" in prompt
+        assert "[2] LEAD" in prompt
+        assert "Sales tooling." in prompt
+        # The transcript is explicitly delimited.
+        assert "--- BEGIN TRANSCRIPT ---" in prompt
+        assert "--- END TRANSCRIPT ---" in prompt
+        # No summarised-chat block survives.
+        assert "What We Know From the Conversation" not in prompt
         # The legacy flat fields are gone.
         assert "Headline:" not in prompt
         assert "Company:" not in prompt
 
-    def test_handles_missing_summaries_gracefully(self, db, fake_session):
+    def test_handles_empty_thread_gracefully(self, db, fake_session):
         from linkedin.agents.follow_up import _render_system_prompt
 
         lead = LeadFactory(public_identifier="bob")
@@ -67,38 +86,64 @@ class TestRenderSystemPrompt:
 
         # Renders without crashing and shows the empty placeholders.
         assert "(none yet)" in prompt
-        assert "No recent messages." in prompt
+        assert "this thread is empty" in prompt
 
 
-class TestLoadRecentMessages:
-    def test_returns_last_n_in_chronological_order(self, db, fake_session):
-        from chat.models import ChatMessage
-        from django.contrib.contenttypes.models import ContentType
+class TestFormatTranscript:
+    def test_multiline_body_is_indented_under_its_turn(self):
         from django.utils import timezone
-        from datetime import timedelta
+        from linkedin.agents.follow_up import _format_transcript
 
-        from linkedin.agents.follow_up import _load_recent_messages, RECENT_MESSAGES_WINDOW
+        now = timezone.now()
+        out = _format_transcript(
+            [_msg("line one\nline two", is_outgoing=False)], now, self_name="Bob",
+        )
+
+        assert "    line one" in out
+        assert "    line two" in out
+
+    def test_omitted_count_is_announced(self):
+        from django.utils import timezone
+        from linkedin.agents.follow_up import _format_transcript
+
+        now = timezone.now()
+        out = _format_transcript(
+            [_msg("hi", is_outgoing=True)], now, self_name="Bob", omitted=7,
+        )
+
+        assert "7 older message(s) omitted" in out
+
+
+class TestLoadConversation:
+    def test_returns_every_message_in_chronological_order(self, db, fake_session):
+        from django.utils import timezone
+
+        from linkedin.agents.follow_up import _load_conversation
 
         lead = LeadFactory(public_identifier="alice")
         deal = DealFactory(lead=lead, campaign=fake_session.campaign)
-        ct = ContentType.objects.get_for_model(lead)
+        _seed_messages(lead, fake_session.django_user, 25, timezone.now())
 
-        base = timezone.now()
-        for i in range(RECENT_MESSAGES_WINDOW + 3):
-            ChatMessage.objects.create(
-                content_type=ct, object_id=lead.pk,
-                content=f"msg-{i}",
-                is_outgoing=(i % 2 == 0),
-                owner=fake_session.django_user,
-                linkedin_urn=f"urn:msg:{i}",
-                creation_date=base + timedelta(minutes=i),
-            )
+        messages, omitted = _load_conversation(deal)
 
-        recent = _load_recent_messages(deal)
+        # Nothing is dropped and order is oldest-first.
+        assert omitted == 0
+        contents = [m.content for m in messages]
+        assert contents == [f"msg-{i}" for i in range(25)]
 
-        # Window respected and chronological order preserved.
-        assert len(recent) == RECENT_MESSAGES_WINDOW
-        contents = [m.content for m in recent]
-        assert contents == sorted(contents, key=lambda c: int(c.split("-")[1]))
-        # Returned the *latest* messages.
-        assert contents[-1] == f"msg-{RECENT_MESSAGES_WINDOW + 2}"
+    def test_caps_at_max_and_reports_the_remainder(self, db, fake_session, monkeypatch):
+        from django.utils import timezone
+
+        from linkedin.agents import follow_up
+
+        monkeypatch.setattr(follow_up, "MAX_TRANSCRIPT_MESSAGES", 5)
+
+        lead = LeadFactory(public_identifier="carol")
+        deal = DealFactory(lead=lead, campaign=fake_session.campaign)
+        _seed_messages(lead, fake_session.django_user, 12, timezone.now())
+
+        messages, omitted = follow_up._load_conversation(deal)
+
+        # Keeps the newest 5, still chronological, and says 7 were dropped.
+        assert [m.content for m in messages] == [f"msg-{i}" for i in range(7, 12)]
+        assert omitted == 7
